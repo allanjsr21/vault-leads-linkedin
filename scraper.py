@@ -12,12 +12,11 @@ from typing import Optional
 
 from apify_client import ApifyClient
 
+import config
 from config import (
     APIFY_API_TOKEN,
-    CRYPTO_POST_URLS,
     LOCATION_FILTER,
     MAX_LEADS_PER_RUN,
-    SEARCH_KEYWORDS,
 )
 from models import Lead
 
@@ -45,7 +44,7 @@ def search_by_keywords(
     termos de cripto/investimento. Filtra por Brasil.
     """
     client = _get_client()
-    keywords = keywords or SEARCH_KEYWORDS
+    keywords = keywords or config.SEARCH_KEYWORDS
     leads: list[Lead] = []
 
     for keyword in keywords:
@@ -150,7 +149,7 @@ def search_by_post_engagement(
     reagiu/comentou em posts virais de cripto BR.
     """
     client = _get_client()
-    post_urls = post_urls or CRYPTO_POST_URLS
+    post_urls = post_urls or config.CRYPTO_POST_URLS
     leads: list[Lead] = []
 
     if not post_urls:
