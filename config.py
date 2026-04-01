@@ -90,7 +90,7 @@ SEARCH_EXCLUSIONS = (
 )
 
 # ── Limites de operação ────────────────────────────────────────────────────────
-MAX_LEADS_PER_RUN = 50
+MAX_LEADS_PER_RUN = 100
 MAX_PAGES_PER_KEYWORD = 3  # paginas Brave por keyword (20 resultados cada)
 MAX_DMS_PER_DAY = 20
 DELAY_BETWEEN_DMS = (30, 90)
