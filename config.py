@@ -4,7 +4,7 @@ Configurações do agente de leads da Vault Capital no LinkedIn.
 
 import os as _os
 
-# ── Apify ─────────────────────────────────────────────────────────────────────
+# ── Secrets ───────────────────────────────────────────────────────────────────
 # Lê do Streamlit secrets (cloud) ou direto (local)
 def _get_secret(key: str, fallback: str = "") -> str:
     try:
@@ -13,7 +13,9 @@ def _get_secret(key: str, fallback: str = "") -> str:
     except Exception:
         return fallback
 
-APIFY_API_TOKEN = _get_secret("APIFY_API_TOKEN", "apify_api_jwNqErN65vlDma1rgtkcPjEgnbdEz21hX0jG")
+# ── Google Custom Search API ──────────────────────────────────────────────────
+GOOGLE_CSE_API_KEY = _get_secret("GOOGLE_CSE_API_KEY", "")
+GOOGLE_CSE_ID      = _get_secret("GOOGLE_CSE_ID", "")
 
 # ── Chrome ────────────────────────────────────────────────────────────────────
 CHROME_PROFILE_PATH = _os.path.expandvars(
