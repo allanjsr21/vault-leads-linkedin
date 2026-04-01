@@ -77,10 +77,11 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Acoes")
-    btn_collect = st.button("🔍 Coletar Leads", use_container_width=True)
-    btn_send    = st.button("📨 Enviar DMs", use_container_width=True)
-    btn_sync    = st.button("🔄 Sincronizar Sheets", use_container_width=True)
-    btn_refresh = st.button("↻ Atualizar tabela", use_container_width=True)
+    btn_collect      = st.button("🔍 Coletar Leads",       use_container_width=True)
+    btn_send         = st.button("📨 Enviar DMs",           use_container_width=True)
+    btn_sync         = st.button("🔄 Sincronizar Sheets",   use_container_width=True)
+    btn_load_sheets  = st.button("📂 Carregar do Sheets",   use_container_width=True)
+    btn_clear        = st.button("🗑️ Limpar tabela",        use_container_width=True)
 
     st.markdown("---")
     st.caption("Leads aprovados no Google Sheets\nsao enviados automaticamente.")
@@ -127,12 +128,16 @@ def status_color(status: str) -> str:
 
 
 # ── Estado de sessão ───────────────────────────────────────────────────────────
+_EMPTY_DF = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
+
 if "logs" not in st.session_state:
     st.session_state.logs = []
 if "running" not in st.session_state:
     st.session_state.running = False
 if "sheet_url" not in st.session_state:
     st.session_state.sheet_url = ""
+if "session_df" not in st.session_state:
+    st.session_state.session_df = _EMPTY_DF.copy()  # tabela vazia ao abrir
 
 
 def add_log(msg: str):
@@ -150,19 +155,12 @@ st.markdown(f"**Perfil ativo:** {'🔐 Autocustodia' if profile_choice == '1' el
 import config
 profile_data = apply_profile(profile_choice)
 
-# ── Metricas ───────────────────────────────────────────────────────────────────
-try:
-    df = load_dataframe(config.SHEET_NAME)
-    if "sheets_error" in st.session_state:
-        del st.session_state["sheets_error"]
-except Exception as e:
-    st.session_state["sheets_error"] = str(e)
-    df = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
-
+# ── Metricas (baseadas na tabela da sessao atual) ──────────────────────────────
+df = st.session_state.session_df
 total    = len(df)
-pending  = len(df[df.status == "pending"])  if total else 0
-approved = len(df[df.status == "approved"]) if total else 0
-sent     = len(df[df.status == "sent"])     if total else 0
+pending  = len(df[df["status"] == "pending"])  if total else 0
+approved = len(df[df["status"] == "approved"]) if total else 0
+sent     = len(df[df["status"] == "sent"])     if total else 0
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -201,6 +199,13 @@ if btn_collect:
             all_leads = keyword_leads + engagement_leads
             added, dupes = add_leads(all_leads)
             add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
+
+            # Atualiza tabela da sessao com os leads coletados agora
+            from dataclasses import asdict
+            if all_leads:
+                st.session_state.session_df = pd.DataFrame([asdict(l) for l in all_leads])
+            else:
+                st.session_state.session_df = _EMPTY_DF.copy()
 
             add_log(f"Planilha atualizada!")
             st.success(f"Coleta concluida! {added} leads novos.")
@@ -248,27 +253,42 @@ if btn_sync:
             st.error(str(e))
     st.rerun()
 
+if btn_load_sheets:
+    with st.spinner("Carregando leads do Google Sheets..."):
+        try:
+            load_dataframe.clear()
+            df_sheets = load_dataframe(config.SHEET_NAME)
+            st.session_state.session_df = df_sheets
+            add_log(f"Carregado {len(df_sheets)} leads do Sheets.")
+            st.success(f"{len(df_sheets)} leads carregados do Google Sheets.")
+        except Exception as e:
+            add_log(f"ERRO ao carregar Sheets: {e}")
+            st.error(str(e))
+    st.rerun()
+
+if btn_clear:
+    st.session_state.session_df = _EMPTY_DF.copy()
+    add_log("Tabela limpa.")
+    st.rerun()
+
 # ── Tabela de leads ────────────────────────────────────────────────────────────
 st.markdown("### Leads Coletados")
 
-load_dataframe.clear()
-try:
-    df = load_dataframe(config.SHEET_NAME)  # recarrega apos acoes
-except Exception as e:
-    st.session_state["sheets_error"] = str(e)
-    df = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
+df_table = st.session_state.session_df
 
-if "sheets_error" in st.session_state:
-    st.error(f"Erro Google Sheets: {st.session_state['sheets_error']}")
+# Filtro de status
+status_opts = ["Todos"] + sorted(df_table["status"].dropna().unique().tolist()) if not df_table.empty else ["Todos"]
+status_filter = st.selectbox("Filtrar por status:", status_opts, label_visibility="collapsed") if len(status_opts) > 1 else "Todos"
 
-if df.empty:
-    st.info("Nenhum lead coletado ainda. Clique em 'Coletar Leads' para comecar.")
+if status_filter != "Todos" and not df_table.empty:
+    df_table = df_table[df_table["status"] == status_filter]
+
+if df_table.empty:
+    st.info("Nenhum lead nesta sessao. Clique em 'Coletar Leads' ou 'Carregar do Sheets'.")
 else:
-    # Formata status com emoji
-    df_display = df.copy()
+    df_display = df_table.copy()
     df_display["status"] = df_display["status"].apply(lambda s: f"{status_color(s)} {s}")
 
-    # Colunas a exibir
     cols = ["name", "job_title", "company", "location", "status", "source", "linkedin_url"]
     cols = [c for c in cols if c in df_display.columns]
 
@@ -286,9 +306,7 @@ else:
             "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
         },
     )
-
-    if st.session_state.sheet_url:
-        st.markdown(f"[Abrir planilha no Google Sheets]({st.session_state.sheet_url})")
+    st.caption(f"{len(df_table)} leads exibidos | Leads salvos permanentemente no Google Sheets")
 
 # ── Log ao vivo ────────────────────────────────────────────────────────────────
 st.markdown("### Log de Atividade")
