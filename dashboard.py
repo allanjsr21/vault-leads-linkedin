@@ -190,8 +190,6 @@ if btn_collect:
 
             from scraper import search_by_keywords, search_by_post_engagement
             from leads_manager import add_leads, load_leads
-            from sheets_manager import push_leads_to_sheet
-
             add_log("Buscando por palavras-chave...")
             keyword_leads = search_by_keywords()
             add_log(f"{len(keyword_leads)} perfis encontrados via keywords")
@@ -204,12 +202,6 @@ if btn_collect:
             added, dupes = add_leads(all_leads)
             add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
 
-            add_log("Publicando no Google Sheets...")
-            tab_name = time.strftime("Coleta %Y-%m-%d %H:%M")
-            from models import _normalize_url
-            new_leads_dict = {_normalize_url(l.linkedin_url): l for l in all_leads}
-            sheet_url = push_leads_to_sheet(new_leads_dict, tab_name=tab_name)
-            st.session_state.sheet_url = sheet_url
             add_log(f"Planilha atualizada!")
             st.success(f"Coleta concluida! {added} leads novos.")
         except Exception as e:
