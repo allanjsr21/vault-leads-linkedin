@@ -18,7 +18,7 @@ from typing import Optional
 import requests
 
 import config
-from config import LOCATION_FILTER, MAX_LEADS_PER_RUN
+from config import LOCATION_FILTER, MAX_LEADS_PER_RUN, MAX_PAGES_PER_KEYWORD
 from models import Lead, _normalize_url
 
 log = logging.getLogger(__name__)
@@ -66,10 +66,29 @@ def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
         break
 
     # ── Localização ───────────────────────────────────────────────────────────
+    # Descricoes do LinkedIn via Brave usam · como separador;
+    # localizacao pode aparecer em qualquer segmento, ex: "500+ connections · Sao Paulo, SP · CEO"
     location = ""
-    first_sentence = re.split(r"[.\n·]", description)[0].strip()
-    if first_sentence and "," in first_sentence and len(first_sentence) < 60:
-        location = first_sentence
+    BR_PATTERN = re.compile(
+        r"(?:Brazil|Brasil|"
+        r"São Paulo|Rio de Janeiro|Belo Horizonte|Brasília|Curitiba|Fortaleza|"
+        r"Manaus|Salvador|Recife|Porto Alegre|Belém|Goiânia|Florianópolis|"
+        r",\s*(?:SP|RJ|MG|RS|PR|SC|BA|GO|DF|CE|PE|AM|MS|MT|PA|ES|PB|RN|AL|"
+        r"SE|PI|MA|AP|RO|AC|RR|TO))",
+        re.IGNORECASE,
+    )
+    for seg in re.split(r"[.\n·|]", description):
+        seg = seg.strip()
+        if not seg or len(seg) > 80:
+            continue
+        if BR_PATTERN.search(seg):
+            location = seg
+            break
+    # fallback: primeiro segmento com virgula e sem digitos
+    if not location:
+        first = re.split(r"[.\n·]", description)[0].strip()
+        if first and "," in first and len(first) < 60 and not re.search(r"[0-9]", first):
+            location = first
 
     return Lead(
         name=name,
@@ -100,60 +119,81 @@ def search_by_keywords(
             "Adicione-o no Streamlit Cloud → Settings → Secrets."
         )
 
-    keywords  = keywords or config.SEARCH_KEYWORDS
+    keywords   = keywords or config.SEARCH_KEYWORDS
+    exclusions = getattr(config, "SEARCH_EXCLUSIONS", "")
     leads: list[Lead] = []
     seen_urls: set[str] = set()
+    quota_hit = False
 
     for keyword in keywords:
-        if len(leads) >= max_results:
+        if len(leads) >= max_results or quota_hit:
             break
 
-        query = f"site:linkedin.com/in {keyword} {LOCATION_FILTER}"
-        log.info(f"[brave] Buscando: '{keyword}'")
+        base_query = f"site:linkedin.com/in {keyword} {LOCATION_FILTER}"
+        if exclusions:
+            base_query += f" {exclusions}"
 
-        try:
-            resp = requests.get(
-                BRAVE_SEARCH_URL,
-                headers={
-                    "Accept":               "application/json",
-                    "Accept-Encoding":      "gzip",
-                    "X-Subscription-Token": api_key,
-                },
-                params={
-                    "q":     query,
-                    "count": 20,
-                },
-                timeout=15,
-            )
-
-            if resp.status_code == 429:
-                log.warning("[brave] Cota mensal atingida. Encerrando busca.")
+        for page in range(MAX_PAGES_PER_KEYWORD):
+            if len(leads) >= max_results or quota_hit:
                 break
 
-            if resp.status_code != 200:
-                log.warning(f"[brave] HTTP {resp.status_code} para '{keyword}': {resp.text[:200]}")
-                continue
+            offset = page * 20
+            log.info(f"[brave] '{keyword}' página {page + 1} (offset={offset})")
 
-            data  = resp.json()
-            items = data.get("web", {}).get("results", [])
-            log.info(f"[brave] '{keyword}' → {len(items)} resultados")
+            try:
+                resp = requests.get(
+                    BRAVE_SEARCH_URL,
+                    headers={
+                        "Accept":               "application/json",
+                        "Accept-Encoding":      "gzip",
+                        "X-Subscription-Token": api_key,
+                    },
+                    params={
+                        "q":      base_query,
+                        "count":  20,
+                        "offset": offset,
+                    },
+                    timeout=15,
+                )
 
-            for item in items:
-                lead = _parse_brave_result(item, source="keyword_search")
-                if not lead:
-                    continue
-                key = _normalize_url(lead.linkedin_url)
-                if key in seen_urls:
-                    continue
-                seen_urls.add(key)
-                leads.append(lead)
-                if len(leads) >= max_results:
+                if resp.status_code == 429:
+                    log.warning("[brave] Cota mensal atingida. Encerrando busca.")
+                    quota_hit = True
                     break
 
-        except requests.RequestException as e:
-            log.error(f"[brave] Erro de conexão para '{keyword}': {e}")
+                if resp.status_code != 200:
+                    log.warning(f"[brave] HTTP {resp.status_code} para '{keyword}' p{page+1}: {resp.text[:200]}")
+                    break  # pula para proximo keyword
 
-        time.sleep(1)  # rate limiting cortês
+                data  = resp.json()
+                items = data.get("web", {}).get("results", [])
+                log.info(f"[brave] '{keyword}' p{page+1} → {len(items)} resultados")
+
+                if not items:
+                    break  # sem mais resultados nessa keyword
+
+                new_in_page = 0
+                for item in items:
+                    lead = _parse_brave_result(item, source="keyword_search")
+                    if not lead:
+                        continue
+                    key = _normalize_url(lead.linkedin_url)
+                    if key in seen_urls:
+                        continue
+                    seen_urls.add(key)
+                    leads.append(lead)
+                    new_in_page += 1
+                    if len(leads) >= max_results:
+                        break
+
+                if new_in_page == 0:
+                    break  # pagina sem novidades, pula keyword
+
+            except requests.RequestException as e:
+                log.error(f"[brave] Erro de conexão para '{keyword}' p{page+1}: {e}")
+                break
+
+            time.sleep(1)  # rate limiting cortês
 
     log.info(f"[brave] Total: {len(leads)} leads coletados")
     return leads

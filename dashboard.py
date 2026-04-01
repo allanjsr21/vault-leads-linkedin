@@ -102,8 +102,15 @@ def apply_profile(choice: str):
 @st.cache_data(ttl=30)
 def load_dataframe(sheet_name: str) -> pd.DataFrame:
     from dataclasses import asdict
-    from leads_manager import load_leads
-    leads = load_leads()
+    from leads_manager import _use_sheets
+
+    if _use_sheets():
+        from sheets_manager import sheets_load_leads  # raises on auth error
+        leads = sheets_load_leads()
+    else:
+        from leads_manager import _csv_load_leads
+        leads = _csv_load_leads()
+
     if not leads:
         return pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
     return pd.DataFrame([asdict(l) for l in leads.values()])
@@ -144,7 +151,13 @@ import config
 profile_data = apply_profile(profile_choice)
 
 # ── Metricas ───────────────────────────────────────────────────────────────────
-df = load_dataframe(config.SHEET_NAME)
+try:
+    df = load_dataframe(config.SHEET_NAME)
+    if "sheets_error" in st.session_state:
+        del st.session_state["sheets_error"]
+except Exception as e:
+    st.session_state["sheets_error"] = str(e)
+    df = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
 
 total    = len(df)
 pending  = len(df[df.status == "pending"])  if total else 0
@@ -247,7 +260,14 @@ if btn_sync:
 st.markdown("### Leads Coletados")
 
 load_dataframe.clear()
-df = load_dataframe(config.SHEET_NAME)  # recarrega apos acoes
+try:
+    df = load_dataframe(config.SHEET_NAME)  # recarrega apos acoes
+except Exception as e:
+    st.session_state["sheets_error"] = str(e)
+    df = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
+
+if "sheets_error" in st.session_state:
+    st.error(f"Erro Google Sheets: {st.session_state['sheets_error']}")
 
 if df.empty:
     st.info("Nenhum lead coletado ainda. Clique em 'Coletar Leads' para comecar.")

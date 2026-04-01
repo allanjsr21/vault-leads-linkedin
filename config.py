@@ -29,13 +29,14 @@ AUDIENCE_PROFILES = {
         "name": "Autocustodia",
         "description": "Evento de autocustodia — pessoas interessadas em guardar o proprio Bitcoin",
         "keywords": [
-            "autocustodia Bitcoin",
-            "cold wallet Brasil",
-            "hardware wallet Bitcoin",
-            "soberania financeira cripto",
-            "Bitcoin self custody",
-            "carteira fria criptomoeda",
-            "seed phrase Bitcoin",
+            # Investidores individuais — linguagem de quem ja guarda ou quer guardar
+            "guardo meu bitcoin ledger",
+            "bitcoin cold storage pessoal",
+            "comprei trezor bitcoin",
+            "carteira hardware bitcoin investidor",
+            "bitcoin self custody individuo",
+            "seed phrase seguranca bitcoin",
+            "soberania bitcoin nao exchange",
         ],
         "sheet_name": "Vault — Leads Autocustodia",
         "leads_csv": "leads_autocustodia.csv",
@@ -55,13 +56,14 @@ Vault Capital""",
         "name": "Consultoria",
         "description": "Consultoria — empresarios e executivos que querem orientacao profissional em cripto",
         "keywords": [
-            "CEO investidor Brasil",
-            "fundador patrimonio digital",
-            "executivo diversificacao investimento",
-            "empresario Bitcoin",
-            "CFO criptoativos",
-            "gestor patrimonio cripto",
-            "investidor qualificado blockchain",
+            # Empresarios/executivos independentes — nao funcionarios de exchange
+            "empresario investindo bitcoin",
+            "socio fundador alocacao cripto",
+            "CEO diversificacao patrimonio bitcoin",
+            "empreendedor reserva bitcoin",
+            "diretor executivo cripto brasil",
+            "CFO patrimonio digital empresa",
+            "investidor anjo bitcoin brasil",
         ],
         "sheet_name": "Vault — Leads Consultoria",
         "leads_csv": "leads_consultoria.csv",
@@ -81,8 +83,15 @@ Vault Capital""",
 # ── Filtro de localização ──────────────────────────────────────────────────────
 LOCATION_FILTER = "Brazil"
 
+# ── Exclusões de busca (evita funcionarios de exchanges conhecidas) ────────────
+SEARCH_EXCLUSIONS = (
+    '-"Mercado Bitcoin" -"Binance" -"Coinbase" -"Foxbit" -"NovaDAX"'
+    ' -"Bitso" -"Crypto.com" -"OKX" -"Bybit" -"Kraken"'
+)
+
 # ── Limites de operação ────────────────────────────────────────────────────────
 MAX_LEADS_PER_RUN = 50
+MAX_PAGES_PER_KEYWORD = 3  # paginas Brave por keyword (20 resultados cada)
 MAX_DMS_PER_DAY = 20
 DELAY_BETWEEN_DMS = (30, 90)
 
