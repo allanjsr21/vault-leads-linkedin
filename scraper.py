@@ -84,11 +84,7 @@ def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
         if BR_PATTERN.search(seg):
             location = seg
             break
-    # fallback: primeiro segmento com virgula e sem digitos
-    if not location:
-        first = re.split(r"[.\n·]", description)[0].strip()
-        if first and "," in first and len(first) < 60 and not re.search(r"[0-9]", first):
-            location = first
+    # sem fallback generico — melhor vazio do que texto de bio errado
 
     return Lead(
         name=name,
