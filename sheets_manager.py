@@ -277,43 +277,63 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
     worksheet.spreadsheet.batch_update({"requests": col_resize_requests})
 
 
-def push_leads_to_sheet(leads: Optional[dict] = None) -> str:
-    """
-    Escreve todos os leads na planilha Google Sheets.
-    - Cria a planilha se não existir e compartilha com SHEET_OWNER_EMAIL
-    - URL do LinkedIn vira hyperlink clicável ("Ver perfil")
-    - Aplica formatação completa
-    Retorna a URL da planilha.
-    """
-    if leads is None:
-        leads = load_leads()
-
-    client = _get_client()
-    spreadsheet = _open_or_create_sheet(client)
-    worksheet = spreadsheet.sheet1
-    worksheet.clear()
-
-    # Cabeçalho
+def _write_leads_to_worksheet(worksheet: gspread.Worksheet, leads_iter) -> int:
+    """Escreve cabeçalho + dados de leads em um worksheet. Retorna nº de linhas de dados."""
     headers = [COLUMN_LABELS.get(col, col) for col in SHEET_COLUMNS]
     rows = [headers]
-
-    # Dados
-    for lead in leads.values():
+    for lead in leads_iter:
         row = []
         for col in SHEET_COLUMNS:
             val = getattr(lead, col, "") or ""
             if col == "linkedin_url" and val:
-                # Fórmula HYPERLINK → célula clicável com texto "Ver perfil"
                 row.append(f'=HYPERLINK("{val}";"Ver perfil")')
             else:
                 row.append(val)
         rows.append(row)
-
-    # USER_ENTERED para que as fórmulas =HYPERLINK sejam interpretadas
     worksheet.update(rows, "A1", value_input_option="USER_ENTERED")
+    return len(rows) - 1
 
-    if len(rows) > 1:
-        _apply_formatting(worksheet, len(rows) - 1)
+
+def push_leads_to_sheet(
+    leads: Optional[dict] = None,
+    tab_name: Optional[str] = None,
+) -> str:
+    """
+    Escreve leads na planilha Google Sheets.
+    - Sempre atualiza a sheet1 ("Todos") com TODOS os leads do CSV (para aprovação).
+    - Se tab_name for fornecido, cria (ou substitui) uma aba adicional com os leads
+      passados em `leads` — usada para registrar os leads de cada coleta.
+    - Cria a planilha se não existir e compartilha com SHEET_OWNER_EMAIL.
+    - URL do LinkedIn vira hyperlink clicável ("Ver perfil").
+    Retorna a URL da planilha.
+    """
+    client = _get_client()
+    spreadsheet = _open_or_create_sheet(client)
+
+    # ── Sempre atualiza sheet1 com TODOS os leads (para aprovação via dropdown) ──
+    all_leads = load_leads()
+    sheet1 = spreadsheet.sheet1
+    # Renomeia sheet1 para "Todos" se ainda tiver nome padrão
+    if sheet1.title in ("Sheet1", "Plan1", "Página1", "Folha1"):
+        sheet1.update_title("Todos")
+    sheet1.clear()
+    num_rows = _write_leads_to_worksheet(sheet1, all_leads.values())
+    if num_rows > 0:
+        _apply_formatting(sheet1, num_rows)
+    log.info(f"Sheet1 ('Todos') atualizada com {num_rows} leads.")
+
+    # ── Cria aba da coleta se tab_name fornecido ───────────────────────────────
+    if tab_name and leads is not None:
+        try:
+            ws_tab = spreadsheet.worksheet(tab_name)
+            ws_tab.clear()
+            log.info(f"Aba existente reutilizada: '{tab_name}'")
+        except Exception:
+            ws_tab = spreadsheet.add_worksheet(title=tab_name, rows=500, cols=NUM_COLS)
+            log.info(f"Nova aba criada: '{tab_name}'")
+        tab_rows = _write_leads_to_worksheet(ws_tab, leads.values())
+        if tab_rows > 0:
+            _apply_formatting(ws_tab, tab_rows)
 
     url = spreadsheet.url
     log.info(f"Planilha atualizada: {url}")

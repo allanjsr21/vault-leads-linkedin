@@ -185,7 +185,10 @@ if btn_collect:
             add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
 
             add_log("Publicando no Google Sheets...")
-            sheet_url = push_leads_to_sheet(load_leads())
+            tab_name = time.strftime("Coleta %Y-%m-%d %H:%M")
+            from leads_manager import _normalize_url
+            new_leads_dict = {_normalize_url(l.linkedin_url): l for l in all_leads}
+            sheet_url = push_leads_to_sheet(new_leads_dict, tab_name=tab_name)
             st.session_state.sheet_url = sheet_url
             add_log(f"Planilha atualizada!")
             st.success(f"Coleta concluida! {added} leads novos.")
