@@ -99,11 +99,14 @@ def apply_profile(choice: str):
     return profile
 
 
-def load_dataframe(csv_path: str) -> pd.DataFrame:
-    if not os.path.exists(csv_path):
+@st.cache_data(ttl=30)
+def load_dataframe(sheet_name: str) -> pd.DataFrame:
+    from dataclasses import asdict
+    from leads_manager import load_leads
+    leads = load_leads()
+    if not leads:
         return pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
-    df = pd.read_csv(csv_path)
-    return df
+    return pd.DataFrame([asdict(l) for l in leads.values()])
 
 
 def status_color(status: str) -> str:
@@ -139,10 +142,9 @@ st.markdown(f"**Perfil ativo:** {'🔐 Autocustodia' if profile_choice == '1' el
 
 import config
 profile_data = apply_profile(profile_choice)
-csv_path = config.LEADS_CSV
 
 # ── Metricas ───────────────────────────────────────────────────────────────────
-df = load_dataframe(csv_path)
+df = load_dataframe(config.SHEET_NAME)
 
 total    = len(df)
 pending  = len(df[df.status == "pending"])  if total else 0
@@ -186,7 +188,7 @@ if btn_collect:
 
             add_log("Publicando no Google Sheets...")
             tab_name = time.strftime("Coleta %Y-%m-%d %H:%M")
-            from leads_manager import _normalize_url
+            from models import _normalize_url
             new_leads_dict = {_normalize_url(l.linkedin_url): l for l in all_leads}
             sheet_url = push_leads_to_sheet(new_leads_dict, tab_name=tab_name)
             st.session_state.sheet_url = sheet_url
@@ -237,7 +239,8 @@ if btn_sync:
 # ── Tabela de leads ────────────────────────────────────────────────────────────
 st.markdown("### Leads Coletados")
 
-df = load_dataframe(csv_path)  # recarrega apos acoes
+load_dataframe.clear()
+df = load_dataframe(config.SHEET_NAME)  # recarrega apos acoes
 
 if df.empty:
     st.info("Nenhum lead coletado ainda. Clique em 'Coletar Leads' para comecar.")

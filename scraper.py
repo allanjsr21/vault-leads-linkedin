@@ -19,7 +19,7 @@ from config import (
     MAX_LEADS_PER_RUN,
     SEARCH_KEYWORDS,
 )
-from leads_manager import Lead
+from models import Lead
 
 log = logging.getLogger(__name__)
 

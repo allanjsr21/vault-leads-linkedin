@@ -1,31 +1,28 @@
 """
-Integração com Google Sheets para gestão de leads da Vault Capital.
+Google Sheets como fonte de verdade para leads da Vault Capital.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  COMO CONFIGURAR (faça uma vez só)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  1. Acesse: https://console.cloud.google.com/
  2. Crie um projeto (ou use um existente)
- 3. Ative as APIs:
-      - Google Sheets API
-      - Google Drive API
+ 3. Ative as APIs: Google Sheets API + Google Drive API
  4. Em "Credenciais" → "Criar credenciais" → "Conta de serviço"
-      - Dê um nome (ex: vault-leads-agent)
-      - Role: Editor
- 5. Na conta de serviço criada → "Chaves" → "Adicionar chave" → JSON
-      - Salve o arquivo como: google_credentials.json
-      - Coloque na pasta do agente (linkedin/)
- 6. Pronto! O agente cria a planilha automaticamente.
+ 5. Na conta de serviço → "Chaves" → "Adicionar chave" → JSON
+      - Salve como: oauth_credentials.json
+ 6. Rode o agente — ele cria a planilha automaticamente.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
+import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import gspread
-from gspread.exceptions import SpreadsheetNotFound
+from gspread.exceptions import SpreadsheetNotFound, WorksheetNotFound
 from gspread_formatting import (
     BooleanCondition,
     BooleanRule,
@@ -43,8 +40,9 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from config import GOOGLE_OAUTH_FILE, GOOGLE_TOKEN_FILE, LEADS_CSV, SHEET_NAME, SHEET_OWNER_EMAIL
-from leads_manager import Lead, FIELDNAMES, _normalize_url, load_leads, save_leads
+import config
+from config import GOOGLE_OAUTH_FILE, GOOGLE_TOKEN_FILE, SHEET_OWNER_EMAIL
+from models import Lead, FIELDNAMES, _normalize_url
 
 log = logging.getLogger(__name__)
 
@@ -53,12 +51,14 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+# Aba principal — fonte de verdade para aprovação
+MASTER_TAB = "Todos"
+
 # ── Estrutura das colunas ──────────────────────────────────────────────────────
-# Ordem e campos exibidos na planilha
 SHEET_COLUMNS = [
     "status",        # A
     "name",          # B
-    "linkedin_url",  # C  → renderizado como hyperlink clicável
+    "linkedin_url",  # C
     "job_title",     # D
     "company",       # E
     "location",      # F
@@ -81,11 +81,10 @@ COLUMN_LABELS = {
     "collected_at": "Coletado em",
 }
 
-# Largura de cada coluna em pixels (mesma ordem de SHEET_COLUMNS)
 COLUMN_WIDTHS = [
     110,  # A — Status
     200,  # B — Nome
-    110,  # C — LinkedIn (link "Ver perfil")
+    220,  # C — LinkedIn
     220,  # D — Cargo
     180,  # E — Empresa
     150,  # F — Localização
@@ -95,27 +94,31 @@ COLUMN_WIDTHS = [
     160,  # J — Coletado em
 ]
 
-NUM_COLS = len(SHEET_COLUMNS)  # 10
+NUM_COLS = len(SHEET_COLUMNS)
 LAST_COL_LETTER = chr(ord("A") + NUM_COLS - 1)  # "J"
-
 STATUS_OPTIONS = ["pending", "approved", "skipped"]
 
+# Índices de colunas (0-based) — usados em sheets_update_lead_status
+_IDX_STATUS   = SHEET_COLUMNS.index("status")
+_IDX_URL      = SHEET_COLUMNS.index("linkedin_url")
+_IDX_SENT_AT  = SHEET_COLUMNS.index("sent_at")
+_IDX_ERROR    = SHEET_COLUMNS.index("error")
+
+
+# ── Autenticação ───────────────────────────────────────────────────────────────
 
 def _get_client() -> gspread.Client:
     """
     Autentica via OAuth.
-    - No Streamlit Cloud: lê credenciais de st.secrets
+    - Streamlit Cloud: lê credenciais de st.secrets
     - Local: usa arquivos oauth_credentials.json / google_token.json
     """
-    import json
-
     creds = None
 
-    # ── Streamlit Cloud: credenciais via secrets ───────────────────────────────
+    # Streamlit Cloud
     try:
         import streamlit as st
-        oauth_json  = st.secrets.get("GOOGLE_OAUTH_JSON", "")
-        token_json  = st.secrets.get("GOOGLE_TOKEN_JSON", "")
+        token_json = st.secrets.get("GOOGLE_TOKEN_JSON", "")
 
         if token_json:
             creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
@@ -123,23 +126,19 @@ def _get_client() -> gspread.Client:
                 creds.refresh(Request())
 
         if not creds or not creds.valid:
-            if oauth_json:
-                from google_auth_oauthlib.flow import Flow
-                flow = Flow.from_client_config(json.loads(oauth_json), SCOPES)
-                # No cloud não há browser — precisa do token já gerado
-                raise RuntimeError(
-                    "Token Google expirado ou ausente no Streamlit secrets.\n"
-                    "Atualize GOOGLE_TOKEN_JSON no painel do Streamlit Cloud."
-                )
+            raise RuntimeError(
+                "Token Google expirado ou ausente no Streamlit secrets.\n"
+                "Atualize GOOGLE_TOKEN_JSON no painel do Streamlit Cloud."
+            )
 
         if creds and creds.valid:
             return gspread.authorize(creds)
     except ImportError:
-        pass  # streamlit não disponível, segue fluxo local
+        pass  # streamlit não disponível
     except RuntimeError:
         raise
 
-    # ── Local: usa arquivos ────────────────────────────────────────────────────
+    # Local
     if os.path.exists(GOOGLE_TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(GOOGLE_TOKEN_FILE, SCOPES)
 
@@ -160,32 +159,27 @@ def _get_client() -> gspread.Client:
 
 
 def _open_or_create_sheet(client: gspread.Client) -> gspread.Spreadsheet:
+    """Abre ou cria a planilha. Usa config.SHEET_NAME dinamicamente."""
+    sheet_name = config.SHEET_NAME
     try:
-        sheet = client.open(SHEET_NAME)
-        log.info(f"Planilha existente aberta: '{SHEET_NAME}'")
+        sheet = client.open(sheet_name)
+        log.info(f"Planilha aberta: '{sheet_name}'")
         return sheet
     except SpreadsheetNotFound:
-        log.info(f"Criando nova planilha: '{SHEET_NAME}'")
-        sheet = client.create(SHEET_NAME)
-        # Compartilha direto com o e-mail do usuário como editor
+        log.info(f"Criando planilha: '{sheet_name}'")
+        sheet = client.create(sheet_name)
         sheet.share(SHEET_OWNER_EMAIL, perm_type="user", role="writer", notify=True)
         log.info(f"Planilha compartilhada com {SHEET_OWNER_EMAIL}")
         return sheet
 
 
+# ── Formatação ─────────────────────────────────────────────────────────────────
+
 def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
-    """
-    Aplica toda a formatação visual da planilha:
-    - Cabeçalho azul escuro com texto branco
-    - Dropdown de status na coluna A
-    - Coloração de LINHA INTEIRA baseada no status (coluna A)
-    - Largura correta para todas as 10 colunas
-    - Cabeçalho fixo (freeze)
-    """
+    """Cabeçalho azul, dropdown de status, cores condicionais por linha, freeze."""
     header_range = f"A1:{LAST_COL_LETTER}1"
     data_range   = f"A2:{LAST_COL_LETTER}{num_rows + 1}"
 
-    # ── Cabeçalho: fundo azul escuro, texto branco, negrito ───────────────────
     format_cell_range(
         worksheet,
         header_range,
@@ -202,7 +196,6 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
     if num_rows < 1:
         return
 
-    # ── Dropdown na coluna A (Status) ─────────────────────────────────────────
     set_data_validation_for_cell_range(
         worksheet,
         f"A2:A{num_rows + 1}",
@@ -213,10 +206,7 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
         ),
     )
 
-    # ── Coloração de LINHA INTEIRA via CUSTOM_FORMULA ─────────────────────────
-    # =$A2="valor" → aplica cor a toda a linha quando coluna A bate o valor
     row_color_rules = [
-        # approved → verde claro
         ConditionalFormatRule(
             ranges=[GridRange.from_a1_range(data_range, worksheet)],
             booleanRule=BooleanRule(
@@ -224,7 +214,6 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
                 format=CellFormat(backgroundColor=Color(0.82, 0.96, 0.82)),
             ),
         ),
-        # sent → azul claro
         ConditionalFormatRule(
             ranges=[GridRange.from_a1_range(data_range, worksheet)],
             booleanRule=BooleanRule(
@@ -232,7 +221,6 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
                 format=CellFormat(backgroundColor=Color(0.82, 0.91, 1.0)),
             ),
         ),
-        # skipped → cinza claro
         ConditionalFormatRule(
             ranges=[GridRange.from_a1_range(data_range, worksheet)],
             booleanRule=BooleanRule(
@@ -240,7 +228,6 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
                 format=CellFormat(backgroundColor=Color(0.90, 0.90, 0.90)),
             ),
         ),
-        # failed → vermelho claro
         ConditionalFormatRule(
             ranges=[GridRange.from_a1_range(data_range, worksheet)],
             booleanRule=BooleanRule(
@@ -255,10 +242,8 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
         rules.append(rule)
     rules.save()
 
-    # ── Congela cabeçalho ─────────────────────────────────────────────────────
     worksheet.freeze(rows=1)
 
-    # ── Largura de todas as 10 colunas ────────────────────────────────────────
     col_resize_requests = [
         {
             "updateDimensionProperties": {
@@ -277,15 +262,24 @@ def _apply_formatting(worksheet: gspread.Worksheet, num_rows: int) -> None:
     worksheet.spreadsheet.batch_update({"requests": col_resize_requests})
 
 
-def _write_leads_to_worksheet(worksheet: gspread.Worksheet, leads_iter) -> int:
-    """Escreve cabeçalho + dados de leads em um worksheet. Retorna nº de linhas de dados."""
+def _write_leads_to_worksheet(
+    worksheet: gspread.Worksheet,
+    leads_iter,
+    use_hyperlink: bool = True,
+) -> int:
+    """
+    Escreve cabeçalho + dados num worksheet.
+    use_hyperlink=True  → coluna C fica =HYPERLINK (abas de coleta — visual)
+    use_hyperlink=False → URL bruta (aba Todos — necessário para leitura de volta)
+    Retorna nº de linhas de dados escritas.
+    """
     headers = [COLUMN_LABELS.get(col, col) for col in SHEET_COLUMNS]
     rows = [headers]
     for lead in leads_iter:
         row = []
         for col in SHEET_COLUMNS:
             val = getattr(lead, col, "") or ""
-            if col == "linkedin_url" and val:
+            if col == "linkedin_url" and val and use_hyperlink:
                 row.append(f'=HYPERLINK("{val}";"Ver perfil")')
             else:
                 row.append(val)
@@ -294,122 +288,219 @@ def _write_leads_to_worksheet(worksheet: gspread.Worksheet, leads_iter) -> int:
     return len(rows) - 1
 
 
+# ── CRUD — Sheets como fonte de verdade ───────────────────────────────────────
+
+def sheets_load_leads() -> dict[str, Lead]:
+    """Lê todos os leads da aba 'Todos'. Retorna dict indexado por URL normalizada."""
+    client = _get_client()
+    spreadsheet = _open_or_create_sheet(client)
+    try:
+        worksheet = spreadsheet.worksheet(MASTER_TAB)
+    except WorksheetNotFound:
+        return {}
+
+    all_values = worksheet.get_all_values()
+    if len(all_values) < 2:
+        return {}
+
+    header_row = all_values[0]
+    label_to_field = {v: k for k, v in COLUMN_LABELS.items()}
+    col_map = {
+        i: label_to_field.get(header_row[i], header_row[i])
+        for i in range(len(header_row))
+    }
+
+    leads: dict[str, Lead] = {}
+    for data_row in all_values[1:]:
+        record = {
+            col_map[i]: data_row[i]
+            for i in range(len(data_row))
+            if i in col_map
+        }
+        url = str(record.get("linkedin_url", "")).strip()
+        if not url:
+            continue
+        key = _normalize_url(url)
+        leads[key] = Lead(
+            name=record.get("name", ""),
+            linkedin_url=url,
+            job_title=record.get("job_title", ""),
+            company=record.get("company", ""),
+            location=record.get("location", ""),
+            source=record.get("source", ""),
+            status=record.get("status", "pending"),
+            sent_at=record.get("sent_at", ""),
+            error=record.get("error", ""),
+            collected_at=record.get("collected_at", ""),
+        )
+    return leads
+
+
+def sheets_save_leads(leads: dict[str, Lead]) -> str:
+    """Salva todos os leads na aba 'Todos' (cria se não existir). Retorna URL."""
+    client = _get_client()
+    spreadsheet = _open_or_create_sheet(client)
+
+    try:
+        worksheet = spreadsheet.worksheet(MASTER_TAB)
+        worksheet.clear()
+    except WorksheetNotFound:
+        # Renomeia sheet1 para "Todos"
+        worksheet = spreadsheet.sheet1
+        worksheet.update_title(MASTER_TAB)
+        worksheet.clear()
+
+    num_rows = _write_leads_to_worksheet(worksheet, leads.values(), use_hyperlink=False)
+    if num_rows > 0:
+        _apply_formatting(worksheet, num_rows)
+
+    log.info(f"'{MASTER_TAB}' atualizada com {num_rows} leads.")
+    return spreadsheet.url
+
+
+def sheets_add_leads(new_leads: list[Lead]) -> tuple[int, int]:
+    """
+    Adiciona leads novos ao Sheets, ignorando duplicatas.
+    Retorna (adicionados, duplicatas).
+    """
+    existing = sheets_load_leads()
+    added = 0
+    dupes = 0
+    for lead in new_leads:
+        key = _normalize_url(lead.linkedin_url)
+        if key in existing:
+            dupes += 1
+        else:
+            existing[key] = lead
+            added += 1
+    if added > 0:
+        sheets_save_leads(existing)
+    return added, dupes
+
+
+def sheets_update_lead_status(url: str, status: str, error: str = "") -> None:
+    """
+    Atualiza o status de um lead específico no Sheets.
+    Operação cirúrgica: atualiza apenas as células necessárias.
+    """
+    client = _get_client()
+    spreadsheet = _open_or_create_sheet(client)
+    try:
+        worksheet = spreadsheet.worksheet(MASTER_TAB)
+    except WorksheetNotFound:
+        log.warning(f"Aba '{MASTER_TAB}' não encontrada para atualizar status.")
+        return
+
+    key = _normalize_url(url)
+    all_values = worksheet.get_all_values()
+    if len(all_values) < 2:
+        return
+
+    header_row = all_values[0]
+    label_to_field = {v: k for k, v in COLUMN_LABELS.items()}
+    col_map = {
+        i: label_to_field.get(header_row[i], header_row[i])
+        for i in range(len(header_row))
+    }
+
+    # Encontra índices de colunas relevantes
+    status_col = url_col = sent_at_col = error_col = None
+    for i, field_name in col_map.items():
+        if field_name == "status":        status_col  = i
+        elif field_name == "linkedin_url": url_col    = i
+        elif field_name == "sent_at":     sent_at_col = i
+        elif field_name == "error":       error_col   = i
+
+    if url_col is None or status_col is None:
+        return
+
+    for row_idx, data_row in enumerate(all_values[1:], start=2):  # 1-indexed, linha 1 = header
+        row_url = str(data_row[url_col]).strip() if url_col < len(data_row) else ""
+        if _normalize_url(row_url) == key:
+            cells = [gspread.Cell(row_idx, status_col + 1, status)]
+            if error_col is not None:
+                cells.append(gspread.Cell(row_idx, error_col + 1, error))
+            if status == "sent" and sent_at_col is not None:
+                cells.append(gspread.Cell(row_idx, sent_at_col + 1, datetime.now().isoformat()))
+            worksheet.update_cells(cells)
+            log.info(f"Status atualizado no Sheets: {url} → {status}")
+            return
+
+    log.warning(f"Lead não encontrado no Sheets para atualizar: {url}")
+
+
+# ── Interface de coleta (abas por rodada) ──────────────────────────────────────
+
 def push_leads_to_sheet(
     leads: Optional[dict] = None,
     tab_name: Optional[str] = None,
 ) -> str:
     """
-    Escreve leads na planilha Google Sheets.
-    - Sempre atualiza a sheet1 ("Todos") com TODOS os leads do CSV (para aprovação).
-    - Se tab_name for fornecido, cria (ou substitui) uma aba adicional com os leads
-      passados em `leads` — usada para registrar os leads de cada coleta.
-    - Cria a planilha se não existir e compartilha com SHEET_OWNER_EMAIL.
-    - URL do LinkedIn vira hyperlink clicável ("Ver perfil").
-    Retorna a URL da planilha.
+    Cria/atualiza uma aba de coleta na planilha com hyperlinks clicáveis.
+    - tab_name fornecido: cria aba "Coleta YYYY-MM-DD HH:MM" com os leads desta rodada.
+    - sem tab_name: escreve na aba 'Todos' (compatibilidade com main.py).
+    Retorna URL da planilha.
     """
     client = _get_client()
     spreadsheet = _open_or_create_sheet(client)
 
-    # ── Sempre atualiza sheet1 com TODOS os leads (para aprovação via dropdown) ──
-    all_leads = load_leads()
-    sheet1 = spreadsheet.sheet1
-    # Renomeia sheet1 para "Todos" se ainda tiver nome padrão
-    if sheet1.title in ("Sheet1", "Plan1", "Página1", "Folha1"):
-        sheet1.update_title("Todos")
-    sheet1.clear()
-    num_rows = _write_leads_to_worksheet(sheet1, all_leads.values())
-    if num_rows > 0:
-        _apply_formatting(sheet1, num_rows)
-    log.info(f"Sheet1 ('Todos') atualizada com {num_rows} leads.")
+    if leads is None:
+        from leads_manager import load_leads
+        leads = load_leads()
 
-    # ── Cria aba da coleta se tab_name fornecido ───────────────────────────────
-    if tab_name and leads is not None:
+    if tab_name:
         try:
-            ws_tab = spreadsheet.worksheet(tab_name)
-            ws_tab.clear()
-            log.info(f"Aba existente reutilizada: '{tab_name}'")
-        except Exception:
-            ws_tab = spreadsheet.add_worksheet(title=tab_name, rows=500, cols=NUM_COLS)
-            log.info(f"Nova aba criada: '{tab_name}'")
-        tab_rows = _write_leads_to_worksheet(ws_tab, leads.values())
-        if tab_rows > 0:
-            _apply_formatting(ws_tab, tab_rows)
+            worksheet = spreadsheet.worksheet(tab_name)
+            worksheet.clear()
+        except WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(title=tab_name, rows=500, cols=NUM_COLS)
+        num_rows = _write_leads_to_worksheet(worksheet, leads.values(), use_hyperlink=True)
+        if num_rows > 0:
+            _apply_formatting(worksheet, num_rows)
+        log.info(f"Aba '{tab_name}' criada com {num_rows} leads.")
+    else:
+        return sheets_save_leads(leads)
 
     url = spreadsheet.url
     log.info(f"Planilha atualizada: {url}")
     return url
 
 
+# ── Leitura de aprovados ───────────────────────────────────────────────────────
+
 def pull_approved_from_sheet() -> list[Lead]:
     """
-    Lê a planilha e retorna os leads com status 'approved'.
-    Sincroniza o status de volta para o CSV local.
+    Lê a aba 'Todos' e retorna leads com status 'approved'.
+    Nunca sobrescreve leads já enviados ou com falha.
     """
-    client = _get_client()
+    IMMUTABLE_STATUSES = {"sent", "failed"}
+
     try:
-        spreadsheet = client.open(SHEET_NAME)
-    except SpreadsheetNotFound:
-        log.warning("Planilha não encontrada. Rode 'python main.py collect' primeiro.")
+        sheet_leads = sheets_load_leads()
+    except Exception as e:
+        log.warning(f"Não foi possível ler o Sheets: {e}")
         return []
 
-    worksheet = spreadsheet.sheet1
-
-    # get_all_values() para não perder URLs que viraram fórmulas
-    all_values = worksheet.get_all_values()
-    if not all_values:
+    if not sheet_leads:
         return []
 
-    header_row = all_values[0]
-    label_to_field = {v: k for k, v in COLUMN_LABELS.items()}
-
-    # Mapeia índice de coluna → campo interno
-    col_map = {
-        i: label_to_field.get(header_row[i], header_row[i])
-        for i in range(len(header_row))
-    }
+    # Tenta ler CSV local para proteger status imutáveis
+    local_leads: dict = {}
+    try:
+        from leads_manager import _csv_load_leads
+        local_leads = _csv_load_leads()
+    except Exception:
+        pass
 
     approved: list[Lead] = []
-    local_leads = load_leads()
-
-    for data_row in all_values[1:]:
-        record = {col_map[i]: data_row[i] for i in range(len(data_row)) if i in col_map}
-
-        status = str(record.get("status", "")).strip().lower()
-
-        # URL pode ser fórmula =HYPERLINK("url","Ver perfil") ou URL pura
-        raw_url = str(record.get("linkedin_url", "")).strip()
-        if raw_url.startswith("=HYPERLINK"):
-            # extrai a URL da fórmula
-            import re
-            m = re.search(r'HYPERLINK\("([^"]+)"', raw_url)
-            url = m.group(1) if m else ""
-        else:
-            url = raw_url
-
-        if not url:
+    for key, lead in sheet_leads.items():
+        status = lead.status.strip().lower()
+        local = local_leads.get(key)
+        if local and local.status in IMMUTABLE_STATUSES:
+            log.debug(f"Status imutável preservado: {lead.linkedin_url} ({local.status})")
             continue
-
-        key = _normalize_url(url)
-
-        # Sincroniza status da planilha → CSV local
-        # PROTEÇÃO: nunca sobrescreve leads já enviados ou com falha.
-        # Se o CSV diz "sent" e a planilha foi editada para "approved",
-        # o CSV prevalece — esse lead não será prospectado de novo.
-        IMMUTABLE_STATUSES = {"sent", "failed"}
-        if key in local_leads:
-            current_status = local_leads[key].status
-            if current_status in IMMUTABLE_STATUSES:
-                log.debug(f"Ignorando mudança de status para '{status}': {url} já está '{current_status}'")
-            elif current_status != status:
-                local_leads[key].status = status
-                log.info(f"Status sincronizado: {url} → {status}")
-
         if status == "approved":
-            lead = local_leads.get(key)
-            # Segurança extra: só aprova quem ainda não foi enviado
-            if lead and lead.status not in IMMUTABLE_STATUSES:
-                approved.append(lead)
+            approved.append(lead)
 
-    save_leads(local_leads)
-    log.info(f"{len(approved)} leads aprovados encontrados na planilha.")
+    log.info(f"{len(approved)} leads aprovados encontrados.")
     return approved

@@ -27,8 +27,8 @@ from config import (
     DM_TEMPLATE,
     MAX_DMS_PER_DAY,
 )
+from models import Lead
 from leads_manager import (
-    Lead,
     count_sent_today,
     get_approved_leads,
     update_lead_status,

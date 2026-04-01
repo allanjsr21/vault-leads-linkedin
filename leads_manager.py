@@ -1,93 +1,97 @@
 """
-Gerenciamento de leads: armazenamento em CSV, deduplicação e status de envio.
+Gerenciamento de leads.
+
+Usa Google Sheets como fonte de verdade quando disponível,
+CSV local como fallback (uso offline / sem credenciais).
 """
 
 import csv
+import logging
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict
 from datetime import datetime
 from typing import Optional
 
-from config import LEADS_CSV
+import config
+from models import Lead, FIELDNAMES, _normalize_url
+
+log = logging.getLogger(__name__)
+
+# Pode ser sobrescrito externamente: leads_manager.LEADS_CSV = "outro.csv"
+LEADS_CSV = config.LEADS_CSV
 
 
-@dataclass
-class Lead:
-    name: str
-    linkedin_url: str
-    first_name: str = ""
-    job_title: str = ""
-    company: str = ""
-    location: str = ""
-    source: str = ""          # "keyword_search" | "post_engagement"
-    status: str = "pending"   # "pending" | "sent" | "failed" | "skipped"
-    sent_at: str = ""
-    error: str = ""
-    collected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+# ── Detecção de ambiente ───────────────────────────────────────────────────────
 
-    def __post_init__(self):
-        if not self.first_name and self.name:
-            self.first_name = self.name.strip().split()[0]
-
-
-FIELDNAMES = [
-    "name", "first_name", "linkedin_url", "job_title", "company",
-    "location", "source", "status", "sent_at", "error", "collected_at",
-]
+def _use_sheets() -> bool:
+    """
+    True se credenciais Google estiverem disponíveis E um perfil estiver selecionado.
+    Garante que Sheets só é usado quando SHEET_NAME está configurado.
+    """
+    if not config.SHEET_NAME:
+        return False
+    # Streamlit Cloud: credenciais via secrets
+    try:
+        import streamlit as st
+        if st.secrets.get("GOOGLE_TOKEN_JSON"):
+            return True
+    except Exception:
+        pass
+    # Local: token salvo em arquivo
+    return os.path.exists("google_token.json")
 
 
-def _normalize_url(url: str) -> str:
-    """Remove parâmetros de query e trailing slash para deduplicação."""
-    url = url.split("?")[0].rstrip("/").lower()
-    return url
-
+# ── API pública ────────────────────────────────────────────────────────────────
 
 def load_leads() -> dict[str, Lead]:
-    """Carrega leads do CSV. Retorna dict indexado por URL normalizada."""
-    leads: dict[str, Lead] = {}
-    if not os.path.exists(LEADS_CSV):
-        return leads
-    with open(LEADS_CSV, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            key = _normalize_url(row["linkedin_url"])
-            leads[key] = Lead(**{k: row.get(k, "") for k in FIELDNAMES})
-    return leads
+    """Carrega leads da fonte disponível (Sheets ou CSV)."""
+    if _use_sheets():
+        try:
+            from sheets_manager import sheets_load_leads
+            return sheets_load_leads()
+        except Exception as e:
+            log.warning(f"Falha ao ler Sheets, usando CSV: {e}")
+    return _csv_load_leads()
 
 
 def save_leads(leads: dict[str, Lead]) -> None:
-    """Salva todos os leads no CSV."""
-    with open(LEADS_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        for lead in leads.values():
-            writer.writerow(asdict(lead))
+    """Salva leads na fonte disponível (Sheets ou CSV)."""
+    if _use_sheets():
+        try:
+            from sheets_manager import sheets_save_leads
+            sheets_save_leads(leads)
+            return
+        except Exception as e:
+            log.warning(f"Falha ao salvar no Sheets, usando CSV: {e}")
+    _csv_save_leads(leads)
 
 
 def add_leads(new_leads: list[Lead]) -> tuple[int, int]:
-    """
-    Adiciona novos leads ao CSV, ignorando duplicatas.
-    Um lead é duplicata se o LinkedIn URL já existir — independente do status.
-    Isso garante que leads já prospectados (sent/failed/skipped) nunca sejam
-    re-adicionados como pending em coletas futuras.
-    Retorna (adicionados, duplicatas).
-    """
-    existing = load_leads()
-    added = 0
-    dupes = 0
-    for lead in new_leads:
-        key = _normalize_url(lead.linkedin_url)
-        if key in existing:
-            dupes += 1
-        else:
-            existing[key] = lead
-            added += 1
-    save_leads(existing)
-    return added, dupes
+    """Adiciona leads novos, ignorando duplicatas. Retorna (adicionados, duplicatas)."""
+    if _use_sheets():
+        try:
+            from sheets_manager import sheets_add_leads
+            return sheets_add_leads(new_leads)
+        except Exception as e:
+            log.warning(f"Falha ao adicionar no Sheets, usando CSV: {e}")
+    return _csv_add_leads(new_leads)
 
+
+def update_lead_status(linkedin_url: str, status: str, error: str = "") -> None:
+    """Atualiza o status de um lead."""
+    if _use_sheets():
+        try:
+            from sheets_manager import sheets_update_lead_status
+            sheets_update_lead_status(linkedin_url, status, error)
+            return
+        except Exception as e:
+            log.warning(f"Falha ao atualizar Sheets, usando CSV: {e}")
+    _csv_update_lead_status(linkedin_url, status, error)
+
+
+# ── Queries ────────────────────────────────────────────────────────────────────
 
 def get_leads_by_status(status: str, limit: Optional[int] = None) -> list[Lead]:
-    """Retorna leads com o status especificado."""
     leads = load_leads()
     result = [l for l in leads.values() if l.status == status]
     if limit:
@@ -96,33 +100,14 @@ def get_leads_by_status(status: str, limit: Optional[int] = None) -> list[Lead]:
 
 
 def get_pending_leads(limit: Optional[int] = None) -> list[Lead]:
-    """Retorna leads com status 'pending' (aguardando revisão)."""
     return get_leads_by_status("pending", limit)
 
 
 def get_approved_leads(limit: Optional[int] = None) -> list[Lead]:
-    """Retorna leads com status 'approved' (aprovados para envio de DM)."""
     return get_leads_by_status("approved", limit)
 
 
-def update_lead_status(
-    linkedin_url: str,
-    status: str,
-    error: str = "",
-) -> None:
-    """Atualiza o status de um lead no CSV."""
-    leads = load_leads()
-    key = _normalize_url(linkedin_url)
-    if key in leads:
-        leads[key].status = status
-        leads[key].error = error
-        if status == "sent":
-            leads[key].sent_at = datetime.now().isoformat()
-    save_leads(leads)
-
-
 def count_sent_today() -> int:
-    """Conta quantas DMs foram enviadas hoje."""
     today = datetime.now().date().isoformat()
     leads = load_leads()
     return sum(
@@ -132,7 +117,6 @@ def count_sent_today() -> int:
 
 
 def print_summary() -> None:
-    """Imprime resumo do estado dos leads."""
     leads = load_leads()
     total = len(leads)
     by_status: dict[str, int] = {}
@@ -158,3 +142,51 @@ def print_summary() -> None:
             print(f"  {label:<22} {count}")
     print(f"  DMs enviadas hoje:  {count_sent_today()}")
     print(f"{'='*45}\n")
+
+
+# ── CSV fallback ───────────────────────────────────────────────────────────────
+
+def _csv_load_leads() -> dict[str, Lead]:
+    leads: dict[str, Lead] = {}
+    if not os.path.exists(LEADS_CSV):
+        return leads
+    with open(LEADS_CSV, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            key = _normalize_url(row["linkedin_url"])
+            leads[key] = Lead(**{k: row.get(k, "") for k in FIELDNAMES})
+    return leads
+
+
+def _csv_save_leads(leads: dict[str, Lead]) -> None:
+    with open(LEADS_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        for lead in leads.values():
+            writer.writerow(asdict(lead))
+
+
+def _csv_add_leads(new_leads: list[Lead]) -> tuple[int, int]:
+    existing = _csv_load_leads()
+    added = 0
+    dupes = 0
+    for lead in new_leads:
+        key = _normalize_url(lead.linkedin_url)
+        if key in existing:
+            dupes += 1
+        else:
+            existing[key] = lead
+            added += 1
+    _csv_save_leads(existing)
+    return added, dupes
+
+
+def _csv_update_lead_status(linkedin_url: str, status: str, error: str = "") -> None:
+    leads = _csv_load_leads()
+    key = _normalize_url(linkedin_url)
+    if key in leads:
+        leads[key].status = status
+        leads[key].error = error
+        if status == "sent":
+            leads[key].sent_at = datetime.now().isoformat()
+    _csv_save_leads(leads)
