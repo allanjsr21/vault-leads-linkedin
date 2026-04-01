@@ -173,8 +173,7 @@ if btn_collect:
             import config as _cfg
             add_log(f"Keywords: {len(_cfg.SEARCH_KEYWORDS)} configuradas")
             add_log(f"Sheet: {_cfg.SHEET_NAME}")
-            add_log(f"Google CSE Key: {'OK' if _cfg.GOOGLE_CSE_API_KEY else 'VAZIO'}")
-            add_log(f"Google CSE ID: {'OK' if _cfg.GOOGLE_CSE_ID else 'VAZIO'}")
+            add_log(f"Brave API Key: {'OK' if _cfg.BRAVE_SEARCH_API_KEY else 'VAZIO'}")
 
             from scraper import search_by_keywords, search_by_post_engagement
             from leads_manager import add_leads, load_leads

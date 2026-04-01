@@ -13,9 +13,8 @@ def _get_secret(key: str, fallback: str = "") -> str:
     except Exception:
         return fallback
 
-# ── Google Custom Search API ──────────────────────────────────────────────────
-GOOGLE_CSE_API_KEY = _get_secret("GOOGLE_CSE_API_KEY", "")
-GOOGLE_CSE_ID      = _get_secret("GOOGLE_CSE_ID", "")
+# ── Brave Search API ──────────────────────────────────────────────────────────
+BRAVE_SEARCH_API_KEY = _get_secret("BRAVE_SEARCH_API_KEY", "")
 
 # ── Chrome ────────────────────────────────────────────────────────────────────
 CHROME_PROFILE_PATH = _os.path.expandvars(

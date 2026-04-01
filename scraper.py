@@ -1,20 +1,19 @@
 """
-Módulo de coleta de leads via Google Custom Search API.
+Módulo de coleta de leads via Brave Search API.
 
 Usa site:linkedin.com/in + keywords para encontrar perfis brasileiros.
-Gratuito: 100 consultas/dia (10 resultados por consulta).
+Gratuito: 2000 consultas/mês (plano Free, sem cartão de crédito).
 
 Setup (uma vez só):
-  1. https://programmablesearchengine.google.com → cria engine para linkedin.com/in/*
-  2. https://console.cloud.google.com/apis → ativa Custom Search API + cria API Key
-  3. Adiciona GOOGLE_CSE_API_KEY e GOOGLE_CSE_ID no Streamlit Cloud secrets
+  1. https://api.search.brave.com → cria conta gratuita → plano Free
+  2. Copia a API key
+  3. Adiciona BRAVE_SEARCH_API_KEY no Streamlit Cloud secrets
 """
 
 import logging
 import re
 import time
 from typing import Optional
-from urllib.parse import quote_plus
 
 import requests
 
@@ -24,35 +23,33 @@ from models import Lead, _normalize_url
 
 log = logging.getLogger(__name__)
 
-GOOGLE_CSE_URL = "https://www.googleapis.com/customsearch/v1"
+BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 
-# ── Parser de resultados Google ───────────────────────────────────────────────
+# ── Parser de resultados Brave ────────────────────────────────────────────────
 
-def _parse_google_result(item: dict, source: str) -> Optional[Lead]:
+def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
     """
-    Converte um item da Google CSE em Lead.
+    Converte um item da Brave Web Search em Lead.
 
     Formato típico dos resultados do LinkedIn:
-      title:   "João Silva - CEO at Empresa X | LinkedIn"
-      link:    "https://www.linkedin.com/in/joaosilva"
-      snippet: "São Paulo, Brazil. CEO at Empresa X. 500+ connections."
+      title:       "João Silva - CEO at Empresa X | LinkedIn"
+      url:         "https://www.linkedin.com/in/joaosilva"
+      description: "São Paulo, Brazil. CEO at Empresa X. 500+ connections."
     """
-    url = item.get("link", "")
+    url = item.get("url", "")
     if "linkedin.com/in/" not in url:
         return None
 
-    title   = item.get("title", "")
-    snippet = item.get("snippet", "")
+    title       = item.get("title", "")
+    description = item.get("description", "")
 
     # ── Nome ──────────────────────────────────────────────────────────────────
-    # "João Silva - CEO at Empresa X | LinkedIn"  →  "João Silva"
     name = re.split(r"\s*[-–|]\s*", title)[0].strip()
     if not name:
         return None
 
     # ── Cargo e empresa ───────────────────────────────────────────────────────
-    # Partes intermediárias do title: "CEO at Empresa X"
     title_parts = re.split(r"\s*[-–|]\s*", title)
     job_title = ""
     company   = ""
@@ -60,7 +57,6 @@ def _parse_google_result(item: dict, source: str) -> Optional[Lead]:
         part = part.strip()
         if part.lower() in ("linkedin", ""):
             continue
-        # "CEO at Empresa X" / "CEO na Empresa X" / "CEO em Empresa X"
         at_match = re.split(r"\s+(?:at|na|em|@)\s+", part, maxsplit=1, flags=re.IGNORECASE)
         if len(at_match) == 2:
             job_title = at_match[0].strip()
@@ -70,10 +66,8 @@ def _parse_google_result(item: dict, source: str) -> Optional[Lead]:
         break
 
     # ── Localização ───────────────────────────────────────────────────────────
-    # Snippet começa com localização: "São Paulo, Brazil. CEO..."
     location = ""
-    first_sentence = re.split(r"[.\n·]", snippet)[0].strip()
-    # Considera localização se tiver vírgula e não for muito longo
+    first_sentence = re.split(r"[.\n·]", description)[0].strip()
     if first_sentence and "," in first_sentence and len(first_sentence) < 60:
         location = first_sentence
 
@@ -95,16 +89,15 @@ def search_by_keywords(
     max_results: int = MAX_LEADS_PER_RUN,
 ) -> list[Lead]:
     """
-    Busca perfis LinkedIn via Google Custom Search API.
+    Busca perfis LinkedIn via Brave Search API.
     Retorna até max_results leads únicos.
     """
-    api_key = config.GOOGLE_CSE_API_KEY
-    cse_id  = config.GOOGLE_CSE_ID
+    api_key = config.BRAVE_SEARCH_API_KEY
 
-    if not api_key or not cse_id:
+    if not api_key:
         raise ValueError(
-            "GOOGLE_CSE_API_KEY e GOOGLE_CSE_ID não configurados.\n"
-            "Adicione-os no Streamlit Cloud → Settings → Secrets."
+            "BRAVE_SEARCH_API_KEY não configurado.\n"
+            "Adicione-o no Streamlit Cloud → Settings → Secrets."
         )
 
     keywords  = keywords or config.SEARCH_KEYWORDS
@@ -116,41 +109,37 @@ def search_by_keywords(
             break
 
         query = f"site:linkedin.com/in {keyword} {LOCATION_FILTER}"
-        log.info(f"[google_cse] Buscando: '{keyword}'")
+        log.info(f"[brave] Buscando: '{keyword}'")
 
         try:
             resp = requests.get(
-                GOOGLE_CSE_URL,
+                BRAVE_SEARCH_URL,
+                headers={
+                    "Accept":               "application/json",
+                    "Accept-Encoding":      "gzip",
+                    "X-Subscription-Token": api_key,
+                },
                 params={
-                    "key": api_key,
-                    "cx":  cse_id,
-                    "q":   query,
-                    "num": 10,
+                    "q":     query,
+                    "count": 20,
                 },
                 timeout=15,
             )
 
             if resp.status_code == 429:
-                log.warning("[google_cse] Cota diária atingida. Encerrando busca.")
+                log.warning("[brave] Cota mensal atingida. Encerrando busca.")
                 break
 
             if resp.status_code != 200:
-                log.warning(f"[google_cse] HTTP {resp.status_code} para '{keyword}'")
+                log.warning(f"[brave] HTTP {resp.status_code} para '{keyword}': {resp.text[:200]}")
                 continue
 
-            data = resp.json()
-
-            # Verifica cota no corpo da resposta
-            error = data.get("error", {})
-            if error.get("code") == 429 or "rateLimitExceeded" in str(error):
-                log.warning("[google_cse] Cota diária atingida. Encerrando busca.")
-                break
-
-            items = data.get("items", [])
-            log.info(f"[google_cse] '{keyword}' → {len(items)} resultados")
+            data  = resp.json()
+            items = data.get("web", {}).get("results", [])
+            log.info(f"[brave] '{keyword}' → {len(items)} resultados")
 
             for item in items:
-                lead = _parse_google_result(item, source="keyword_search")
+                lead = _parse_brave_result(item, source="keyword_search")
                 if not lead:
                     continue
                 key = _normalize_url(lead.linkedin_url)
@@ -162,25 +151,25 @@ def search_by_keywords(
                     break
 
         except requests.RequestException as e:
-            log.error(f"[google_cse] Erro de conexão para '{keyword}': {e}")
+            log.error(f"[brave] Erro de conexão para '{keyword}': {e}")
 
         time.sleep(1)  # rate limiting cortês
 
-    log.info(f"[google_cse] Total: {len(leads)} leads coletados")
+    log.info(f"[brave] Total: {len(leads)} leads coletados")
     return leads
 
 
-# ── Engajamento em posts (não disponível sem Apify) ───────────────────────────
+# ── Engajamento em posts (não disponível sem scraper dedicado) ────────────────
 
 def search_by_post_engagement(
     post_urls: Optional[list[str]] = None,
     max_results: int = MAX_LEADS_PER_RUN,
 ) -> list[Lead]:
     """
-    Coleta via engajamento em posts não está disponível com Google CSE.
+    Coleta via engajamento em posts não está disponível com Brave Search.
     Retorna lista vazia.
     """
-    log.info("[post_engagement] Método não disponível com Google CSE — ignorado.")
+    log.info("[post_engagement] Método não disponível com Brave Search — ignorado.")
     return []
 
 
@@ -191,16 +180,15 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     import config as _cfg
-    if not _cfg.GOOGLE_CSE_API_KEY:
-        print("ERRO: GOOGLE_CSE_API_KEY não configurado em config.py")
+    if not _cfg.BRAVE_SEARCH_API_KEY:
+        print("ERRO: BRAVE_SEARCH_API_KEY não configurado em config.py")
         sys.exit(1)
 
-    # Testa com o primeiro perfil
     _cfg.SEARCH_KEYWORDS = _cfg.AUDIENCE_PROFILES["1"]["keywords"]
 
     from leads_manager import add_leads, print_summary
 
-    print("Coletando leads via Google CSE...")
+    print("Coletando leads via Brave Search...")
     leads = search_by_keywords()
     print(f"   → {len(leads)} perfis encontrados")
 
