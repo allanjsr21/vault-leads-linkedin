@@ -1,0 +1,14 @@
+google_credentials.json
+oauth_credentials.json
+google_token.json
+linkedin_session.json
+leads.csv
+leads_autocustodia.csv
+leads_consultoria.csv
+agent.log
+.env
+__pycache__/
+*.pyc
+*.pyc
+.streamlit/secrets.toml
+.claude/
