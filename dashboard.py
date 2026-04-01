@@ -170,6 +170,11 @@ if btn_collect:
 
     with st.spinner("Coletando leads via Apify..."):
         try:
+            import config as _cfg
+            add_log(f"Keywords: {len(_cfg.SEARCH_KEYWORDS)} configuradas")
+            add_log(f"Sheet: {_cfg.SHEET_NAME}")
+            add_log(f"Token Apify: {'OK' if _cfg.APIFY_API_TOKEN else 'VAZIO'}")
+
             from scraper import search_by_keywords, search_by_post_engagement
             from leads_manager import add_leads, load_leads
             from sheets_manager import push_leads_to_sheet
@@ -195,7 +200,9 @@ if btn_collect:
             add_log(f"Planilha atualizada!")
             st.success(f"Coleta concluida! {added} leads novos.")
         except Exception as e:
+            import traceback
             add_log(f"ERRO: {e}")
+            add_log(traceback.format_exc())
             st.error(str(e))
 
     st.session_state.running = False
