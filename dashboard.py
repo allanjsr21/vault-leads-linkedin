@@ -181,7 +181,7 @@ if btn_collect:
     st.session_state.running = True
     add_log(f"Iniciando coleta — perfil: {profile_data['name']}")
 
-    with st.spinner("Coletando leads via Apify..."):
+    with st.spinner("Coletando leads via Brave Search..."):
         try:
             import config as _cfg
             add_log(f"Keywords: {len(_cfg.SEARCH_KEYWORDS)} configuradas")
