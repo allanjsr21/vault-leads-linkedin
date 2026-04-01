@@ -244,7 +244,7 @@ else:
     df_display["status"] = df_display["status"].apply(lambda s: f"{status_color(s)} {s}")
 
     # Colunas a exibir
-    cols = ["name", "job_title", "company", "location", "status", "source"]
+    cols = ["name", "job_title", "company", "location", "status", "source", "linkedin_url"]
     cols = [c for c in cols if c in df_display.columns]
 
     st.dataframe(
@@ -252,12 +252,13 @@ else:
         use_container_width=True,
         height=400,
         column_config={
-            "name":      st.column_config.TextColumn("Nome"),
-            "job_title": st.column_config.TextColumn("Cargo"),
-            "company":   st.column_config.TextColumn("Empresa"),
-            "location":  st.column_config.TextColumn("Localizacao"),
-            "status":    st.column_config.TextColumn("Status"),
-            "source":    st.column_config.TextColumn("Origem"),
+            "name":         st.column_config.TextColumn("Nome"),
+            "job_title":    st.column_config.TextColumn("Cargo"),
+            "company":      st.column_config.TextColumn("Empresa"),
+            "location":     st.column_config.TextColumn("Localizacao"),
+            "status":       st.column_config.TextColumn("Status"),
+            "source":       st.column_config.TextColumn("Origem"),
+            "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
         },
     )
 
