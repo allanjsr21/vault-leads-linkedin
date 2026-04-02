@@ -277,12 +277,33 @@ st.markdown("### Leads Coletados")
 
 df_table = st.session_state.session_df
 
-# Filtro de status
-status_opts = ["Todos"] + sorted(df_table["status"].dropna().unique().tolist()) if not df_table.empty else ["Todos"]
-status_filter = st.selectbox("Filtrar por status:", status_opts, label_visibility="collapsed") if len(status_opts) > 1 else "Todos"
+# ── Filtros ───────────────────────────────────────────────────────────────────
+col_search, col_status, col_loc = st.columns([3, 1, 1])
 
-if status_filter != "Todos" and not df_table.empty:
-    df_table = df_table[df_table["status"] == status_filter]
+with col_search:
+    search_text = st.text_input("Buscar", placeholder="Nome, cargo, empresa...", label_visibility="collapsed")
+
+with col_status:
+    status_opts = ["Todos"] + sorted(df_table["status"].dropna().unique().tolist()) if not df_table.empty else ["Todos"]
+    status_filter = st.selectbox("Status", status_opts, label_visibility="collapsed")
+
+with col_loc:
+    if not df_table.empty and "location" in df_table.columns:
+        locs = df_table["location"].dropna().loc[lambda s: s.str.strip() != ""].unique().tolist()
+    else:
+        locs = []
+    loc_opts = ["Todas"] + sorted(locs)
+    loc_filter = st.selectbox("Localização", loc_opts, label_visibility="collapsed")
+
+# Aplica filtros
+if not df_table.empty:
+    if search_text:
+        mask = df_table.apply(lambda row: search_text.lower() in " ".join(str(v) for v in row.values).lower(), axis=1)
+        df_table = df_table[mask]
+    if status_filter != "Todos":
+        df_table = df_table[df_table["status"] == status_filter]
+    if loc_filter != "Todas":
+        df_table = df_table[df_table["location"] == loc_filter]
 
 if df_table.empty:
     st.info("Nenhum lead nesta sessao. Clique em 'Coletar Leads' ou 'Carregar do Sheets'.")

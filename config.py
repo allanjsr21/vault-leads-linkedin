@@ -29,14 +29,14 @@ AUDIENCE_PROFILES = {
         "name": "Autocustodia",
         "description": "Evento de autocustodia — pessoas interessadas em guardar o proprio Bitcoin",
         "keywords": [
-            # Investidores individuais — linguagem de quem ja guarda ou quer guardar
-            "guardo meu bitcoin ledger",
-            "bitcoin cold storage pessoal",
-            "comprei trezor bitcoin",
-            "carteira hardware bitcoin investidor",
-            "bitcoin self custody individuo",
-            "seed phrase seguranca bitcoin",
-            "soberania bitcoin nao exchange",
+            # Linguagem de quem USA bitcoin no dia a dia (nao quem vende)
+            "hodler bitcoin brasil",
+            "minha carteira ledger bitcoin",
+            "guardando bitcoin cold wallet",
+            "nao deixo bitcoin em exchange",
+            "bitcoin hardware wallet pessoal",
+            "trezor bitcoin brasil",
+            "bitcoin soberania financeira pessoal",
         ],
         "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\") Brazil",
         "sheet_name": "Vault — Leads Autocustodia",
@@ -89,7 +89,17 @@ LOCATION_FILTER = "Brazil"
 SEARCH_EXCLUSIONS = (
     '-"Mercado Bitcoin" -"Binance" -"Coinbase" -"Foxbit" -"NovaDAX"'
     ' -"Bitso" -"Crypto.com" -"OKX" -"Bybit" -"Kraken"'
+    ' -"Chairman" -"Board Member" -"Deputado" -"Senador"'
 )
+
+# ── Cargos inalcançáveis (leads com esses termos no cargo são descartados) ────
+TITLE_EXCLUSIONS = [
+    "Board Member", "Chairman", "Chairwoman",
+    "Presidente do Conselho", "Conselheiro",
+    "Deputado", "Senador", "Ministro", "Minister",
+    "Governador", "Prefeito", "Secretário de Estado",
+    "Ambassador", "Embaixador",
+]
 
 # ── Limites de operação ────────────────────────────────────────────────────────
 MAX_LEADS_PER_RUN = 100

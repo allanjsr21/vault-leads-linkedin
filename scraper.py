@@ -18,7 +18,7 @@ from typing import Optional
 import requests
 
 import config
-from config import LOCATION_FILTER, MAX_LEADS_PER_RUN, MAX_PAGES_PER_KEYWORD
+from config import LOCATION_FILTER, MAX_LEADS_PER_RUN, MAX_PAGES_PER_KEYWORD, TITLE_EXCLUSIONS
 from models import Lead, _normalize_url
 
 log = logging.getLogger(__name__)
@@ -66,25 +66,41 @@ def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
         break
 
     # ── Localização ───────────────────────────────────────────────────────────
-    # Descricoes do LinkedIn via Brave usam · como separador;
-    # localizacao pode aparecer em qualquer segmento, ex: "500+ connections · Sao Paulo, SP · CEO"
+    # Busca localização tanto na description quanto no title do resultado Brave
     location = ""
     BR_PATTERN = re.compile(
         r"(?:Brazil|Brasil|"
         r"São Paulo|Rio de Janeiro|Belo Horizonte|Brasília|Curitiba|Fortaleza|"
         r"Manaus|Salvador|Recife|Porto Alegre|Belém|Goiânia|Florianópolis|"
+        r"Ribeirão Preto|Sorocaba|Santos|Juiz de Fora|Niterói|Vitória|"
+        r"Uberlândia|Joinville|Londrina|Maringá|"
+        r"Greater\s+\w+|Região Metropolitana|"
         r",\s*(?:SP|RJ|MG|RS|PR|SC|BA|GO|DF|CE|PE|AM|MS|MT|PA|ES|PB|RN|AL|"
-        r"SE|PI|MA|AP|RO|AC|RR|TO))",
+        r"SE|PI|MA|AP|RO|AC|RR|TO)\b)",
         re.IGNORECASE,
     )
-    for seg in re.split(r"[.\n·|]", description):
-        seg = seg.strip()
-        if not seg or len(seg) > 80:
-            continue
-        if BR_PATTERN.search(seg):
-            location = seg
+    # Tenta description primeiro, depois title
+    for text in (description, title):
+        if location:
             break
-    # sem fallback generico — melhor vazio do que texto de bio errado
+        for seg in re.split(r"[.\n·|]", text):
+            seg = seg.strip()
+            if not seg or len(seg) > 120:
+                continue
+            if seg.lower() in ("linkedin", ""):
+                continue
+            if BR_PATTERN.search(seg):
+                location = seg
+                break
+
+    # ── Filtro de cargos inalcançáveis ────────────────────────────────────────
+    if job_title and TITLE_EXCLUSIONS:
+        jt_lower = job_title.lower()
+        for excl in TITLE_EXCLUSIONS:
+            if excl.lower() in jt_lower:
+                log.debug(f"[brave] Descartado (cargo inalcançável): {name} - {job_title}")
+                return None
+
 
     return Lead(
         name=name,
