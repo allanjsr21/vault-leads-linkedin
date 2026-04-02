@@ -28,7 +28,7 @@ BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 # ── Parser de resultados Brave ────────────────────────────────────────────────
 
-def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
+def _parse_brave_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
     """
     Converte um item da Brave Web Search em Lead.
 
@@ -101,6 +101,11 @@ def _parse_brave_result(item: dict, source: str) -> Optional[Lead]:
                 log.debug(f"[brave] Descartado (cargo inalcançável): {name} - {job_title}")
                 return None
 
+    # ── Fallback de localização: extrai do keyword (que contém cidade) ─────────
+    if not location and keyword:
+        kw_match = BR_PATTERN.search(keyword)
+        if kw_match:
+            location = kw_match.group(0).strip()
 
     return Lead(
         name=name,
@@ -186,7 +191,7 @@ def search_by_keywords(
 
                 new_in_page = 0
                 for item in items:
-                    lead = _parse_brave_result(item, source="keyword_search")
+                    lead = _parse_brave_result(item, source="keyword_search", keyword=keyword)
                     if not lead:
                         continue
                     key = _normalize_url(lead.linkedin_url)
@@ -205,7 +210,7 @@ def search_by_keywords(
                 log.error(f"[brave] Erro de conexão para '{keyword}' p{page+1}: {e}")
                 break
 
-            time.sleep(1)  # rate limiting cortês
+            time.sleep(2)  # rate limiting cortês
 
     log.info(f"[brave] Total: {len(leads)} leads coletados")
     return leads

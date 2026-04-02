@@ -29,14 +29,29 @@ AUDIENCE_PROFILES = {
         "name": "Autocustodia",
         "description": "Evento de autocustodia — pessoas interessadas em guardar o proprio Bitcoin",
         "keywords": [
-            # Linguagem de quem USA bitcoin no dia a dia (nao quem vende)
-            "hodler bitcoin brasil",
-            "minha carteira ledger bitcoin",
-            "guardando bitcoin cold wallet",
-            "nao deixo bitcoin em exchange",
-            "bitcoin hardware wallet pessoal",
-            "trezor bitcoin brasil",
-            "bitcoin soberania financeira pessoal",
+            # São Paulo
+            "bitcoin autocustodia \"São Paulo\"",
+            "bitcoin hardware wallet \"São Paulo\"",
+            "hodler bitcoin \"São Paulo\"",
+            "ledger trezor bitcoin \"São Paulo\"",
+            "bitcoin cold storage \"São Paulo\"",
+            # Rio de Janeiro
+            "bitcoin autocustodia \"Rio de Janeiro\"",
+            "bitcoin hardware wallet \"Rio de Janeiro\"",
+            "hodler bitcoin \"Rio de Janeiro\"",
+            # Belo Horizonte / Minas
+            "bitcoin autocustodia \"Belo Horizonte\"",
+            "bitcoin self custody \"Minas Gerais\"",
+            # Curitiba / Sul
+            "bitcoin hardware wallet Curitiba",
+            "hodler bitcoin Curitiba",
+            # Campinas / interior SP
+            "bitcoin autocustodia Campinas",
+            "bitcoin cold wallet \"interior de São Paulo\"",
+            # Brasil genérico
+            "bitcoin soberania financeira pessoal Brasil",
+            "guardando bitcoin cold wallet Brasil",
+            "trezor ledger bitcoin brasileiro",
         ],
         "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\") Brazil",
         "sheet_name": "Vault — Leads Autocustodia",
@@ -57,14 +72,24 @@ Vault Capital""",
         "name": "Consultoria",
         "description": "Consultoria — empresarios e executivos que querem orientacao profissional em cripto",
         "keywords": [
-            # Empresarios/executivos independentes — nao funcionarios de exchange
-            "empresario investindo bitcoin",
-            "socio fundador alocacao cripto",
-            "CEO diversificacao patrimonio bitcoin",
-            "empreendedor reserva bitcoin",
-            "diretor executivo cripto brasil",
-            "CFO patrimonio digital empresa",
-            "investidor anjo bitcoin brasil",
+            # São Paulo
+            "empresario investindo bitcoin \"São Paulo\"",
+            "empreendedor reserva bitcoin \"São Paulo\"",
+            "socio fundador bitcoin \"São Paulo\"",
+            "CEO alocacao cripto \"São Paulo\"",
+            "investidor anjo bitcoin \"São Paulo\"",
+            # Rio de Janeiro
+            "empresario bitcoin \"Rio de Janeiro\"",
+            "empreendedor cripto \"Rio de Janeiro\"",
+            # Belo Horizonte
+            "empresario bitcoin \"Belo Horizonte\"",
+            # Curitiba
+            "empreendedor bitcoin Curitiba",
+            # Brasil genérico
+            "CFO patrimonio digital Brasil",
+            "diretor executivo cripto Brasil",
+            "empresario bitcoin Brasil",
+            "fundador startup cripto Brasil",
         ],
         "location_filter": "Brazil",
         "sheet_name": "Vault — Leads Consultoria",
@@ -88,7 +113,7 @@ LOCATION_FILTER = "Brazil"
 # ── Exclusões de busca (evita funcionarios de exchanges conhecidas) ────────────
 SEARCH_EXCLUSIONS = (
     '-"Mercado Bitcoin" -"Binance" -"Coinbase" -"Foxbit" -"NovaDAX"'
-    ' -"Bitso" -"Crypto.com" -"OKX" -"Bybit" -"Kraken"'
+    ' -"Bitso" -"Crypto.com" -"OKX" -"Bybit" -"Kraken" -"Bitget"'
     ' -"Chairman" -"Board Member" -"Deputado" -"Senador"'
 )
 
@@ -103,7 +128,7 @@ TITLE_EXCLUSIONS = [
 
 # ── Limites de operação ────────────────────────────────────────────────────────
 MAX_LEADS_PER_RUN = 100
-MAX_PAGES_PER_KEYWORD = 3  # paginas Brave por keyword (20 resultados cada)
+MAX_PAGES_PER_KEYWORD = 5  # paginas Brave por keyword (20 resultados cada)
 MAX_DMS_PER_DAY = 20
 DELAY_BETWEEN_DMS = (30, 90)
 
