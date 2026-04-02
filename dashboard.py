@@ -23,123 +23,190 @@ st.markdown("""
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
 <style>
+
+    /* ── Reset & base ── */
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
+
+    /* Top gold accent line */
+    [data-testid="stAppViewContainer"]::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent 0%, #f0c040 30%, #fb923c 70%, transparent 100%);
+        z-index: 9999;
+    }
+
     [data-testid="stAppViewContainer"] {
-        background: #08080f;
+        background: #07070e;
     }
+
+    /* ── Sidebar ── */
     [data-testid="stSidebar"] {
-        background: #0c0c16;
-        border-right: 1px solid #1c1c2e;
+        background: #0b0b14 !important;
+        border-right: 1px solid rgba(240,192,64,0.08) !important;
     }
+    [data-testid="stSidebar"]::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 2px; height: 100%;
+        background: linear-gradient(180deg, #f0c040 0%, transparent 60%);
+    }
+
+    /* ── Fix radio buttons to brand gold ── */
+    [data-testid="stRadio"] [role="radio"] {
+        border-color: #333355 !important;
+    }
+    [data-testid="stRadio"] [role="radio"][aria-checked="true"] {
+        border-color: #f0c040 !important;
+        background: #f0c040 !important;
+    }
+    [data-testid="stRadio"] label { color: #9090b0 !important; font-size: 0.88rem !important; }
+    [data-testid="stRadio"] label:has([aria-checked="true"]) { color: #f0c040 !important; }
+
     h1, h2, h3, h4 { color: #f0c040 !important; }
 
+    /* ── Buttons ── */
     .stButton > button {
-        background: linear-gradient(135deg, #f0c040 0%, #c89a00 100%);
-        color: #000;
-        font-weight: 600;
-        border-radius: 10px;
-        border: none;
-        padding: 0.55rem 1.5rem;
-        letter-spacing: 0.3px;
-        transition: all 0.18s ease;
-        box-shadow: 0 2px 10px rgba(240, 192, 64, 0.15);
+        background: linear-gradient(135deg, #f0c040 0%, #c89a00 100%) !important;
+        color: #000 !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        border: none !important;
+        padding: 0.5rem 1.2rem !important;
+        letter-spacing: 0.2px !important;
+        transition: all 0.15s ease !important;
+        box-shadow: 0 1px 8px rgba(240,192,64,0.12) !important;
+        font-size: 0.85rem !important;
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #ffd84d 0%, #f0c040 100%);
-        box-shadow: 0 4px 18px rgba(240, 192, 64, 0.3);
-        transform: translateY(-1px);
-        color: #000;
+        background: linear-gradient(135deg, #ffd84d 0%, #f0c040 100%) !important;
+        box-shadow: 0 3px 16px rgba(240,192,64,0.28) !important;
+        transform: translateY(-1px) !important;
     }
-    .stButton > button:active { transform: translateY(0); }
+    .stButton > button:active { transform: translateY(0) !important; }
 
+    /* ── Metric cards ── */
     .metric-card {
-        background: linear-gradient(160deg, #111120 0%, #14141f 100%);
-        border: 1px solid #22223a;
-        border-radius: 16px;
-        padding: 1.4rem 1.5rem 1.2rem;
+        background: #0f0f1c;
+        border: 1px solid #1e1e32;
+        border-radius: 18px;
+        padding: 1.5rem 1rem 1.3rem;
         text-align: center;
-        transition: border-color 0.2s, box-shadow 0.2s;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(240,192,64,0.3), transparent);
     }
     .metric-card:hover {
-        border-color: #f0c040;
-        box-shadow: 0 0 20px rgba(240, 192, 64, 0.07);
+        border-color: rgba(240,192,64,0.25);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .metric-card-hot {
+        border-color: rgba(251,146,60,0.2) !important;
+    }
+    .metric-card-hot::before {
+        background: linear-gradient(90deg, transparent, rgba(251,146,60,0.4), transparent) !important;
+    }
+    .metric-card-hot:hover {
+        border-color: rgba(251,146,60,0.4) !important;
+        box-shadow: 0 8px 30px rgba(251,146,60,0.08) !important;
     }
     .metric-icon {
-        font-size: 1.3rem;
-        color: #f0c040;
-        opacity: 0.75;
-        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        opacity: 0.6;
+        margin-bottom: 0.7rem;
+        display: block;
     }
     .metric-number {
-        font-size: 2.4rem;
+        font-family: 'Space Grotesk', 'Inter', sans-serif;
+        font-size: 2.6rem;
         font-weight: 700;
-        color: #f0c040;
-        letter-spacing: -1.5px;
+        letter-spacing: -2px;
         line-height: 1;
+        display: block;
     }
     .metric-label {
-        font-size: 0.72rem;
-        color: #555577;
-        margin-top: 6px;
+        font-size: 0.68rem;
+        color: #3d3d5c;
+        margin-top: 8px;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 500;
+        letter-spacing: 1.2px;
+        font-weight: 600;
+        display: block;
     }
 
+    /* ── Log box ── */
     .log-box {
-        background: #0c0c16;
-        border: 1px solid #1c1c2e;
+        background: #0b0b14;
+        border: 1px solid #1a1a28;
         border-radius: 12px;
         padding: 1rem 1.2rem;
-        font-family: 'Courier New', monospace;
-        font-size: 0.75rem;
-        color: #5a6080;
-        height: 220px;
+        font-family: 'Fira Code', 'Courier New', monospace;
+        font-size: 0.74rem;
+        color: #4a5080;
+        height: 200px;
         overflow-y: auto;
-        line-height: 1.6;
+        line-height: 1.7;
     }
+    .log-box pre { margin: 0; white-space: pre-wrap; }
 
+    /* ── Sidebar components ── */
     .sidebar-logo {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0.2rem 0 0.5rem;
+        padding: 0.2rem 0 0.4rem;
     }
     .sidebar-logo-icon {
-        width: 34px;
-        height: 34px;
+        width: 36px; height: 36px;
         background: linear-gradient(135deg, #f0c040, #c89a00);
-        border-radius: 8px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1rem;
         color: #000;
+        box-shadow: 0 2px 12px rgba(240,192,64,0.25);
     }
     .sidebar-logo-text {
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 700;
         color: #f0c040;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
     }
     .sidebar-logo-sub {
-        font-size: 0.7rem;
-        color: #44445a;
+        font-size: 0.67rem;
+        color: #33334a;
         margin-top: 1px;
-        letter-spacing: 0.3px;
     }
 
     .section-header {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
         color: #f0c040;
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0.8rem 0 0.5rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        margin: 1rem 0 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        opacity: 0.7;
     }
-    .section-header i { font-size: 0.85rem; opacity: 0.8; }
+    .section-header i { font-size: 0.7rem; }
 
+    /* ── Status badges ── */
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -244,11 +311,12 @@ with st.sidebar:
     btn_load_sheets = st.button("Carregar do Sheets",  icon=":material/cloud_download:", use_container_width=True)
     btn_clear       = st.button("Limpar tabela",       icon=":material/delete:",        use_container_width=True)
 
-    st.markdown("---")
     st.markdown("""
-    <div style="font-size:0.72rem; color:#44445a; line-height:1.6;">
-        <i class="fa-solid fa-circle-info" style="color:#f0c040; opacity:0.5;"></i>
-        Leads aprovados no Google Sheets<br>são enviados automaticamente.
+    <div style="margin-top:1.5rem; padding:0.8rem; background:rgba(240,192,64,0.04);
+                border:1px solid rgba(240,192,64,0.08); border-radius:10px;
+                font-size:0.7rem; color:#33334a; line-height:1.7;">
+        <i class="fa-solid fa-circle-info" style="color:#f0c040; opacity:0.4; margin-right:5px;"></i>
+        Leads aprovados no Sheets<br>são enviados automaticamente.
     </div>
     """, unsafe_allow_html=True)
 
@@ -358,17 +426,20 @@ profile_label = "Autocustódia" if profile_choice == "1" else "Consultoria"
 profile_icon  = "fa-shield-halved" if profile_choice == "1" else "fa-briefcase"
 
 st.markdown(f"""
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:0.2rem;">
-    <div style="font-size:1.8rem; font-weight:700; color:#f0c040; letter-spacing:-0.5px;">
+<div style="display:flex; align-items:center; gap:14px; margin-bottom:0.15rem;">
+    <div style="font-family:'Space Grotesk','Inter',sans-serif; font-size:1.9rem; font-weight:700;
+                color:#f0c040; letter-spacing:-1px; line-height:1;">
         Vault Capital
     </div>
-    <div style="background:#1c1c2e; border:1px solid #2a2a4a; border-radius:20px;
-                padding:3px 12px; font-size:0.75rem; color:#9090b0; font-weight:500;">
-        <i class="fa-solid {profile_icon}" style="color:#f0c040; margin-right:5px;"></i>{profile_label}
+    <div style="background:rgba(240,192,64,0.07); border:1px solid rgba(240,192,64,0.15);
+                border-radius:20px; padding:4px 13px; font-size:0.72rem;
+                color:#c8a830; font-weight:600; letter-spacing:0.3px;">
+        <i class="fa-solid {profile_icon}" style="margin-right:5px; opacity:0.8;"></i>{profile_label}
     </div>
 </div>
-<div style="font-size:0.82rem; color:#44445a; margin-bottom:1rem; letter-spacing:0.3px;">
-    <i class="fa-brands fa-linkedin" style="color:#0a66c2; margin-right:5px;"></i>Agente de Leads LinkedIn
+<div style="font-size:0.78rem; color:#2e2e45; margin-bottom:1.4rem; letter-spacing:0.3px; display:flex; align-items:center; gap:6px;">
+    <i class="fa-brands fa-linkedin" style="color:#0a66c2;"></i>
+    <span>Agente de Leads LinkedIn</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -389,19 +460,19 @@ hot      = len(df[df["prioridade"] == "Hot"])       if total and "prioridade" in
 
 col1, col2, col3, col4, col5 = st.columns(5)
 metric_data = [
-    (col1, "fa-users",       total,    "Total de Leads",      "#f0c040"),
-    (col2, "fa-fire",        hot,      "Hot Leads",           "#fb923c"),
-    (col3, "fa-clock",       pending,  "Aguardando Revisão",  "#f0c040"),
-    (col4, "fa-circle-check",approved, "Aprovados",           "#34d399"),
-    (col5, "fa-paper-plane", sent,     "DMs Enviadas",        "#60a5fa"),
+    (col1, "fa-users",        total,    "Total de Leads",     "#f0c040", ""),
+    (col2, "fa-fire",         hot,      "Hot Leads",          "#fb923c", "metric-card-hot"),
+    (col3, "fa-hourglass-half",pending, "Aguardando",         "#a78bfa", ""),
+    (col4, "fa-circle-check", approved, "Aprovados",          "#34d399", ""),
+    (col5, "fa-paper-plane",  sent,     "DMs Enviadas",       "#60a5fa", ""),
 ]
-for col, icon, value, label, color in metric_data:
+for col, icon, value, label, color, extra_class in metric_data:
     with col:
         st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-icon"><i class="fa-solid {icon}" style="color:{color};"></i></div>
-            <div class="metric-number" style="color:{color};">{value}</div>
-            <div class="metric-label">{label}</div>
+        <div class="metric-card {extra_class}">
+            <span class="metric-icon"><i class="fa-solid {icon}" style="color:{color};"></i></span>
+            <span class="metric-number" style="color:{color};">{value}</span>
+            <span class="metric-label">{label}</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -505,8 +576,14 @@ if btn_clear:
 
 # ── Tabela de leads ────────────────────────────────────────────────────────────
 st.markdown("""
-<div class="section-header" style="font-size:1.1rem; margin-bottom:0.8rem;">
-    <i class="fa-solid fa-table-list"></i> Leads Coletados
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.9rem;">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:3px; height:18px; background:linear-gradient(180deg,#f0c040,#c89a00);
+                    border-radius:2px;"></div>
+        <span style="font-size:0.95rem; font-weight:700; color:#e8d060; letter-spacing:0.2px;">
+            Leads Coletados
+        </span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -609,8 +686,12 @@ else:
 
 # ── Log de atividade ───────────────────────────────────────────────────────────
 st.markdown("""
-<div class="section-header" style="font-size:1.1rem; margin: 1.2rem 0 0.8rem;">
-    <i class="fa-solid fa-terminal"></i> Log de Atividade
+<div style="display:flex; align-items:center; gap:8px; margin: 1.4rem 0 0.7rem;">
+    <div style="width:3px; height:18px; background:linear-gradient(180deg,#4a5080,#2a2a40);
+                border-radius:2px;"></div>
+    <span style="font-size:0.95rem; font-weight:700; color:#5a6080; letter-spacing:0.2px;">
+        <i class="fa-solid fa-terminal" style="margin-right:6px; font-size:0.8rem;"></i>Log de Atividade
+    </span>
 </div>
 """, unsafe_allow_html=True)
 
