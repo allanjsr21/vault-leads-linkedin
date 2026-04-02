@@ -38,6 +38,7 @@ AUDIENCE_PROFILES = {
             "seed phrase seguranca bitcoin",
             "soberania bitcoin nao exchange",
         ],
+        "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\") Brazil",
         "sheet_name": "Vault — Leads Autocustodia",
         "leads_csv": "leads_autocustodia.csv",
         "dm_template": """Ola, {first_name}! Tudo bem?
@@ -65,6 +66,7 @@ Vault Capital""",
             "CFO patrimonio digital empresa",
             "investidor anjo bitcoin brasil",
         ],
+        "location_filter": "Brazil",
         "sheet_name": "Vault — Leads Consultoria",
         "leads_csv": "leads_consultoria.csv",
         "dm_template": """Ola, {first_name}! Tudo bem?

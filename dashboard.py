@@ -92,6 +92,7 @@ def apply_profile(choice: str):
     import config
     profile = config.AUDIENCE_PROFILES[choice]
     config.SEARCH_KEYWORDS = profile["keywords"]
+    config.LOCATION_FILTER = profile.get("location_filter", "Brazil")
     config.SHEET_NAME      = profile["sheet_name"]
     config.LEADS_CSV       = profile["leads_csv"]
     config.DM_TEMPLATE     = profile["dm_template"]
