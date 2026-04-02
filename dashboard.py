@@ -155,6 +155,31 @@ st.markdown("""
     .badge-failed   { background: #2a0000; color: #f87171; }
     .badge-skipped  { background: #1a1a1a; color: #6b7280; }
 
+    /* Score badges */
+    .score-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 9px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .score-hot  { background: #2a0e00; color: #fb923c; border: 1px solid #7c2d12; }
+    .score-warm { background: #1a1a00; color: #facc15; border: 1px solid #713f12; }
+    .score-cold { background: #0d1117; color: #6b7280; border: 1px solid #1f2937; }
+
+    /* Score legend */
+    .score-legend {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        font-size: 0.72rem;
+        color: #44445a;
+        margin-bottom: 0.6rem;
+    }
+
     [data-testid="stDataFrame"] {
         border: 1px solid #22223a !important;
         border-radius: 12px !important;
@@ -281,6 +306,33 @@ def status_color(status: str) -> str:
     }.get(status, "⚫")
 
 
+def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona colunas 'score' e 'prioridade' ao dataframe."""
+    from scorer import score_lead, score_label
+    from leads_manager import Lead
+
+    scores  = []
+    labels  = []
+    for _, row in df.iterrows():
+        lead = Lead(
+            linkedin_url = row.get("linkedin_url", ""),
+            name         = row.get("name", ""),
+            job_title    = row.get("job_title", ""),
+            company      = row.get("company", ""),
+            location     = row.get("location", ""),
+            status       = row.get("status", "pending"),
+            source       = row.get("source", ""),
+        )
+        s = score_lead(lead)
+        scores.append(s)
+        labels.append(score_label(s))
+
+    df = df.copy()
+    df["score"]      = scores
+    df["prioridade"] = labels
+    return df
+
+
 # ── Estado de sessão ───────────────────────────────────────────────────────────
 _EMPTY_DF = pd.DataFrame(columns=["name", "linkedin_url", "job_title", "company", "location", "status", "source", "sent_at"])
 
@@ -322,24 +374,33 @@ st.markdown(f"""
 
 # ── Métricas ───────────────────────────────────────────────────────────────────
 df = st.session_state.session_df
-total    = len(df)
-pending  = len(df[df["status"] == "pending"])  if total else 0
-approved = len(df[df["status"] == "approved"]) if total else 0
-sent     = len(df[df["status"] == "sent"])     if total else 0
 
-col1, col2, col3, col4 = st.columns(4)
+# Calcula scores se há leads
+if not df.empty:
+    df_scored = compute_scores(df)
+    st.session_state.session_df = df_scored
+    df = df_scored
+
+total    = len(df)
+pending  = len(df[df["status"] == "pending"])       if total else 0
+approved = len(df[df["status"] == "approved"])      if total else 0
+sent     = len(df[df["status"] == "sent"])          if total else 0
+hot      = len(df[df["prioridade"] == "Hot"])       if total and "prioridade" in df.columns else 0
+
+col1, col2, col3, col4, col5 = st.columns(5)
 metric_data = [
-    (col1, "fa-users",       total,    "Total de Leads"),
-    (col2, "fa-clock",       pending,  "Aguardando Revisão"),
-    (col3, "fa-circle-check",approved, "Aprovados"),
-    (col4, "fa-paper-plane", sent,     "DMs Enviadas"),
+    (col1, "fa-users",       total,    "Total de Leads",      "#f0c040"),
+    (col2, "fa-fire",        hot,      "Hot Leads",           "#fb923c"),
+    (col3, "fa-clock",       pending,  "Aguardando Revisão",  "#f0c040"),
+    (col4, "fa-circle-check",approved, "Aprovados",           "#34d399"),
+    (col5, "fa-paper-plane", sent,     "DMs Enviadas",        "#60a5fa"),
 ]
-for col, icon, value, label in metric_data:
+for col, icon, value, label, color in metric_data:
     with col:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-icon"><i class="fa-solid {icon}"></i></div>
-            <div class="metric-number">{value}</div>
+            <div class="metric-icon"><i class="fa-solid {icon}" style="color:{color};"></i></div>
+            <div class="metric-number" style="color:{color};">{value}</div>
             <div class="metric-label">{label}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -452,7 +513,7 @@ st.markdown("""
 df_table = st.session_state.session_df
 
 # ── Filtros ────────────────────────────────────────────────────────────────────
-col_search, col_status, col_loc = st.columns([3, 1, 1])
+col_search, col_status, col_loc, col_prio = st.columns([3, 1, 1, 1])
 
 with col_search:
     search_text = st.text_input(
@@ -472,6 +533,10 @@ with col_loc:
     loc_opts = ["Todas"] + sorted(locs)
     loc_filter = st.selectbox("Localização", loc_opts, label_visibility="collapsed")
 
+with col_prio:
+    prio_opts = ["Todas", "Hot", "Warm", "Cold"]
+    prio_filter = st.selectbox("Prioridade", prio_opts, label_visibility="collapsed")
+
 # Aplica filtros
 if not df_table.empty:
     if search_text:
@@ -481,6 +546,8 @@ if not df_table.empty:
         df_table = df_table[df_table["status"] == status_filter]
     if loc_filter != "Todas":
         df_table = df_table[df_table["location"] == loc_filter]
+    if prio_filter != "Todas" and "prioridade" in df_table.columns:
+        df_table = df_table[df_table["prioridade"] == prio_filter]
 
 if df_table.empty:
     st.markdown("""
@@ -492,22 +559,44 @@ if df_table.empty:
     """, unsafe_allow_html=True)
 else:
     df_display = df_table.copy()
+
+    # Ordena por score decrescente
+    if "score" in df_display.columns:
+        df_display = df_display.sort_values("score", ascending=False)
+
     df_display["status"] = df_display["status"].apply(lambda s: f"{status_color(s)} {s}")
 
-    cols = ["name", "job_title", "company", "location", "status", "source", "linkedin_url"]
+    # Emoji de prioridade na coluna
+    prio_emoji = {"Hot": "🔥", "Warm": "🟡", "Cold": "❄️"}
+    if "prioridade" in df_display.columns:
+        df_display["prioridade"] = df_display.apply(
+            lambda r: f"{prio_emoji.get(r['prioridade'], '')} {r['prioridade']}  {r.get('score', '')}pts",
+            axis=1,
+        )
+
+    # Legenda de prioridade
+    st.markdown("""
+    <div class="score-legend">
+        <span><span class="score-pill score-hot">🔥 Hot</span> &nbsp;65–100 pts — abordar primeiro</span>
+        <span><span class="score-pill score-warm">🟡 Warm</span> &nbsp;35–64 pts — fila normal</span>
+        <span><span class="score-pill score-cold">❄️ Cold</span> &nbsp;0–34 pts — baixa prioridade</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    cols = ["prioridade", "name", "job_title", "company", "location", "status", "linkedin_url"]
     cols = [c for c in cols if c in df_display.columns]
 
     st.dataframe(
         df_display[cols],
         use_container_width=True,
-        height=400,
+        height=420,
         column_config={
+            "prioridade":   st.column_config.TextColumn("Prioridade"),
             "name":         st.column_config.TextColumn("Nome"),
             "job_title":    st.column_config.TextColumn("Cargo"),
             "company":      st.column_config.TextColumn("Empresa"),
             "location":     st.column_config.TextColumn("Localização"),
             "status":       st.column_config.TextColumn("Status"),
-            "source":       st.column_config.TextColumn("Origem"),
             "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
         },
     )
