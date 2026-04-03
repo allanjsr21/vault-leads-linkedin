@@ -310,7 +310,7 @@ st.markdown("""
         font-size: 0.65rem;
         font-weight: 600;
     }
-    .log-box pre { margin: 0; white-space: pre-wrap; padding-left: 0; padding-top: 1.2rem; }
+    .log-box pre { margin: 0; white-space: pre-wrap; padding-left: 0; padding-top: 1.8rem; }
     .log-box::-webkit-scrollbar { width: 3px; }
     .log-box::-webkit-scrollbar-track { background: transparent; }
     .log-box::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.1); border-radius: 3px; }
