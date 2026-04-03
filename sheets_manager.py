@@ -63,10 +63,12 @@ SHEET_COLUMNS = [
     "company",       # E
     "location",      # F
     "bio",           # G
-    "source",        # H
-    "sent_at",       # I
-    "error",         # J
-    "collected_at",  # K
+    "email",         # H
+    "ai_score",      # I
+    "source",        # J
+    "sent_at",       # K
+    "error",         # L
+    "collected_at",  # M
 ]
 
 COLUMN_LABELS = {
@@ -77,6 +79,8 @@ COLUMN_LABELS = {
     "company":      "Empresa",
     "location":     "Localização",
     "bio":          "Bio / Interesses",
+    "email":        "Email",
+    "ai_score":     "IA Score",
     "source":       "Origem",
     "sent_at":      "DM Enviada em",
     "error":        "Erro",
@@ -91,10 +95,12 @@ COLUMN_WIDTHS = [
     180,  # E — Empresa
     150,  # F — Localização
     280,  # G — Bio / Interesses
-    100,  # H — Origem
-    160,  # I — DM Enviada em
-    200,  # J — Erro
-    140,  # K — Coletado em
+    200,  # H — Email
+    200,  # I — IA Score
+    100,  # J — Origem
+    160,  # K — DM Enviada em
+    200,  # L — Erro
+    140,  # M — Coletado em
 ]
 
 NUM_COLS = len(SHEET_COLUMNS)
@@ -331,6 +337,8 @@ def sheets_load_leads() -> dict[str, Lead]:
             company=record.get("company", ""),
             location=record.get("location", ""),
             bio=record.get("bio", ""),
+            email=record.get("email", ""),
+            ai_score=record.get("ai_score", ""),
             source=record.get("source", ""),
             status=record.get("status", "pending"),
             sent_at=record.get("sent_at", ""),

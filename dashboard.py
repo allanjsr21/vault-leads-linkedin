@@ -306,7 +306,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     btn_collect     = st.button("Coletar Leads",      icon=":material/search:",        use_container_width=True)
+    btn_ai_score    = st.button("Score via IA",        icon=":material/psychology:",    use_container_width=True)
+    btn_enrich      = st.button("Enriquecer Emails",   icon=":material/alternate_email:", use_container_width=True)
     btn_send        = st.button("Enviar DMs",          icon=":material/send:",          use_container_width=True)
+
+    st.markdown("---")
+
     btn_sync        = st.button("Sincronizar Sheets",  icon=":material/sync:",          use_container_width=True)
     btn_load_sheets = st.button("Carregar do Sheets",  icon=":material/cloud_download:", use_container_width=True)
     btn_clear       = st.button("Limpar tabela",       icon=":material/delete:",        use_container_width=True)
@@ -316,7 +321,9 @@ with st.sidebar:
                 border:1px solid rgba(240,192,64,0.08); border-radius:10px;
                 font-size:0.7rem; color:#33334a; line-height:1.7;">
         <i class="fa-solid fa-circle-info" style="color:#f0c040; opacity:0.4; margin-right:5px;"></i>
-        Leads aprovados no Sheets<br>são enviados automaticamente.
+        <b>Score IA</b>: Claude analisa bio e dá nota inteligente<br>
+        <b>Enriquecer</b>: busca email via Hunter.io<br>
+        <b>Coletar</b>: keywords + posts + eventos
     </div>
     """, unsafe_allow_html=True)
 
@@ -491,7 +498,7 @@ if btn_collect:
             add_log(f"Sheet: {_cfg.SHEET_NAME}")
             add_log(f"Brave API Key: {'OK' if _cfg.BRAVE_SEARCH_API_KEY else 'VAZIO'}")
 
-            from scraper import search_by_keywords, search_by_post_engagement
+            from scraper import search_by_keywords, search_by_post_engagement, search_by_events
             from leads_manager import add_leads, load_leads
 
             # Fontes ativas
@@ -511,7 +518,11 @@ if btn_collect:
             engagement_leads = search_by_post_engagement()
             add_log(f"{len(engagement_leads)} autores de artigos/posts encontrados")
 
-            all_leads = keyword_leads + engagement_leads
+            add_log("Buscando participantes de eventos crypto...")
+            event_leads = search_by_events()
+            add_log(f"{len(event_leads)} leads de eventos encontrados")
+
+            all_leads = keyword_leads + engagement_leads + event_leads
             added, dupes = add_leads(all_leads)
             add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
 
@@ -584,6 +595,88 @@ if btn_clear:
     st.session_state.session_df = _EMPTY_DF.copy()
     add_log("Tabela limpa.")
     st.rerun()
+
+if btn_ai_score:
+    df_current = st.session_state.session_df
+    if df_current.empty:
+        st.warning("Nenhum lead carregado. Colete ou carregue leads primeiro.")
+    else:
+        import config as _cfg
+        if not getattr(_cfg, "ANTHROPIC_API_KEY", ""):
+            st.warning("ANTHROPIC_API_KEY não configurada. Adicione no Streamlit secrets.")
+        else:
+            with st.spinner("Analisando leads via Claude IA..."):
+                try:
+                    from scorer import ai_score_lead, score_label
+                    from models import Lead as _Lead
+
+                    add_log(f"Iniciando scoring via IA para {len(df_current)} leads...")
+                    scored = 0
+                    for idx, row in df_current.iterrows():
+                        lead = _Lead(
+                            linkedin_url=row.get("linkedin_url", ""),
+                            name=row.get("name", ""),
+                            job_title=row.get("job_title", ""),
+                            company=row.get("company", ""),
+                            location=row.get("location", ""),
+                            bio=row.get("bio", ""),
+                            source=row.get("source", ""),
+                        )
+                        result = ai_score_lead(lead)
+                        if result:
+                            df_current.at[idx, "score"] = result["score"]
+                            df_current.at[idx, "prioridade"] = result["label"]
+                            df_current.at[idx, "ai_score"] = result.get("reason", "")
+                            scored += 1
+
+                    st.session_state.session_df = df_current
+                    add_log(f"IA analisou {scored}/{len(df_current)} leads com sucesso")
+                    st.success(f"Score via IA concluído! {scored} leads analisados.")
+                except Exception as e:
+                    import traceback
+                    add_log(f"ERRO IA: {e}")
+                    add_log(traceback.format_exc())
+                    st.error(str(e))
+            st.rerun()
+
+if btn_enrich:
+    df_current = st.session_state.session_df
+    if df_current.empty:
+        st.warning("Nenhum lead carregado. Colete ou carregue leads primeiro.")
+    else:
+        import config as _cfg
+        if not getattr(_cfg, "HUNTER_API_KEY", ""):
+            st.warning("HUNTER_API_KEY não configurada. Adicione no Streamlit secrets.")
+        else:
+            with st.spinner("Buscando emails via Hunter.io..."):
+                try:
+                    from enricher import enrich_lead
+                    from models import Lead as _Lead
+
+                    add_log(f"Enriquecendo {len(df_current)} leads...")
+                    found = 0
+                    for idx, row in df_current.iterrows():
+                        if row.get("email"):
+                            continue  # já tem email
+                        lead = _Lead(
+                            linkedin_url=row.get("linkedin_url", ""),
+                            name=row.get("name", ""),
+                            company=row.get("company", ""),
+                        )
+                        result = enrich_lead(lead)
+                        if result.get("email"):
+                            df_current.at[idx, "email"] = result["email"]
+                            found += 1
+
+                    st.session_state.session_df = df_current
+                    add_log(f"Emails encontrados: {found}/{len(df_current)}")
+                    st.success(f"Enriquecimento concluído! {found} emails encontrados.")
+                except Exception as e:
+                    import traceback
+                    add_log(f"ERRO Enrichment: {e}")
+                    add_log(traceback.format_exc())
+                    st.error(str(e))
+            st.rerun()
 
 # ── Tabela de leads ────────────────────────────────────────────────────────────
 st.markdown("""
@@ -671,8 +764,10 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    cols = ["prioridade", "name", "job_title", "company", "location", "status", "linkedin_url"]
+    cols = ["prioridade", "name", "job_title", "company", "location", "email", "ai_score", "status", "linkedin_url"]
     cols = [c for c in cols if c in df_display.columns]
+    # Remove colunas vazias
+    cols = [c for c in cols if not df_display[c].astype(str).str.strip().eq("").all()]
 
     st.dataframe(
         df_display[cols],
@@ -684,6 +779,8 @@ else:
             "job_title":    st.column_config.TextColumn("Cargo"),
             "company":      st.column_config.TextColumn("Empresa"),
             "location":     st.column_config.TextColumn("Localização"),
+            "email":        st.column_config.TextColumn("Email"),
+            "ai_score":     st.column_config.TextColumn("IA Análise"),
             "status":       st.column_config.TextColumn("Status"),
             "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
         },

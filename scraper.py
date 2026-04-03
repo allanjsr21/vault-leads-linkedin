@@ -445,6 +445,103 @@ def search_by_post_engagement(
     return leads
 
 
+# ── Busca por participantes de eventos crypto ────────────────────────────────────
+
+def search_by_events(max_results: int = 30) -> list[Lead]:
+    """
+    Encontra participantes/organizadores de eventos crypto no LinkedIn.
+    Eventos = leads ultra qualificados (demonstraram interesse ativo ao ponto de
+    participar de um evento presencial ou online sobre bitcoin/cripto).
+
+    Estratégia: busca no Brave por eventos LinkedIn de crypto no Brasil,
+    depois extrai perfis dos organizadores/participantes mencionados.
+    """
+    if not config.BRAVE_SEARCH_API_KEY:
+        log.info("[events] Brave API key não disponível — ignorado.")
+        return []
+
+    leads: list[Lead] = []
+    seen_urls: set[str] = set()
+
+    # Buscar eventos crypto no LinkedIn e perfis associados
+    event_queries = [
+        # Eventos LinkedIn
+        'site:linkedin.com/events "bitcoin" "São Paulo"',
+        'site:linkedin.com/events "bitcoin" "Rio de Janeiro"',
+        'site:linkedin.com/events "bitcoin" Brasil',
+        'site:linkedin.com/events "cripto" Brasil',
+        'site:linkedin.com/events "blockchain" Brasil',
+        'site:linkedin.com/events "web3" Brasil',
+        # Organizadores de eventos crypto (perfis que mencionam eventos)
+        'site:linkedin.com/in "organizador" "bitcoin" "evento" Brasil',
+        'site:linkedin.com/in "palestrante" "bitcoin" Brasil',
+        'site:linkedin.com/in "speaker" "bitcoin" Brazil',
+        'site:linkedin.com/in "meetup bitcoin" Brasil',
+        'site:linkedin.com/in "comunidade bitcoin" Brasil',
+        'site:linkedin.com/in "embaixador bitcoin" Brasil',
+        # Grupos/comunidades LinkedIn
+        'site:linkedin.com/in "bitcoin conference" Brasil',
+        'site:linkedin.com/in "bitconf" OR "blockchain rio" OR "bitsampa"',
+        'site:linkedin.com/in "lider comunidade" "bitcoin" Brasil',
+        # Meetup mentions in LinkedIn profiles
+        'site:linkedin.com/in "meetup" "bitcoin" "São Paulo"',
+        'site:linkedin.com/in "meetup" "bitcoin" "Rio de Janeiro"',
+        'site:linkedin.com/in "meetup" "cripto" Brasil',
+    ]
+    random.shuffle(event_queries)
+
+    for query in event_queries:
+        if len(leads) >= max_results:
+            break
+
+        log.info(f"[events] Buscando: {query[:60]}...")
+        items = _brave_search(query)
+        if not items:
+            _human_delay()
+            continue
+
+        for item in items:
+            url = item.get("url", "")
+
+            # Extrair perfil de eventos LinkedIn
+            if "/events/" in url:
+                # Eventos não são perfis — buscar organizador na description
+                desc = item.get("description", "")
+                title = item.get("title", "")
+                # Procurar menção de organizador com link linkedin.com/in
+                profile_match = re.search(r"linkedin\.com/in/([a-zA-Z0-9_-]+)", desc)
+                if profile_match:
+                    url = f"https://www.linkedin.com/in/{profile_match.group(1)}"
+                else:
+                    continue
+
+            # Perfil direto
+            if "linkedin.com/in/" not in url:
+                continue
+
+            lead = _parse_result(item, source="linkedin_event", keyword="evento bitcoin")
+            if not lead:
+                continue
+
+            # Sobrescrever URL se veio de evento
+            if "linkedin.com/in/" in url:
+                lead.linkedin_url = url
+
+            key = _normalize_url(lead.linkedin_url)
+            if key in seen_urls:
+                continue
+            seen_urls.add(key)
+            leads.append(lead)
+
+            if len(leads) >= max_results:
+                break
+
+        _human_delay()
+
+    log.info(f"[events] {len(leads)} participantes/organizadores encontrados")
+    return leads
+
+
 # ── Execução direta ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

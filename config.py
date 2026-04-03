@@ -16,6 +16,12 @@ def _get_secret(key: str, fallback: str = "") -> str:
 # ── Brave Search API ──────────────────────────────────────────────────────────
 BRAVE_SEARCH_API_KEY = _get_secret("BRAVE_SEARCH_API_KEY", "")
 
+# ── Anthropic API (Claude) — para scoring inteligente de leads ───────────────
+ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY", "")
+
+# ── Hunter.io — para enriquecimento de email ─────────────────────────────────
+HUNTER_API_KEY = _get_secret("HUNTER_API_KEY", "")
+
 # ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
 # Setup: https://programmablesearchengine.google.com → criar engine → search entire web
 # API key: https://console.cloud.google.com → Custom Search API → Create Credentials

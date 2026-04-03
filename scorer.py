@@ -4,13 +4,22 @@ scorer.py — Sistema de pontuação de leads para Vault Capital
 Filosofia: pontuar por INTERESSE em bitcoin, não por cargo.
 O público-alvo é pessoa física que investe ou quer investir em bitcoin,
 independente da profissão. Um médico entusiasta vale mais que um CEO de exchange.
+
+Dois modos:
+  1. Keyword matching (padrão, sem custo) — score_lead()
+  2. IA via Claude API (opcional, mais preciso) — ai_score_lead()
 """
 
 from __future__ import annotations
+
+import json
+import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from leads_manager import Lead
+
+log = logging.getLogger(__name__)
 
 
 # ── Sinais de interesse na bio/snippet (0–40 pts) ────────────────────────────
@@ -200,3 +209,94 @@ def score_label(score: int) -> str:
         return "Warm"
     else:
         return "Cold"
+
+
+# ── Scoring via IA (Claude API) ─────────────────────────────────────────────
+
+AI_SCORING_PROMPT = """Você é um analista de leads da Vault Capital, uma empresa que organiza eventos e consultoria sobre autocustódia de Bitcoin para pessoas físicas no Brasil.
+
+Analise este lead e dê uma nota de 0 a 100 baseada em:
+- INTERESSE em Bitcoin/cripto (mais importante — 40pts): sinais de que a pessoa investe, estuda ou tem curiosidade sobre Bitcoin
+- ACESSIBILIDADE (25pts): se é uma pessoa acessível via LinkedIn DM (profissional liberal, empresário PME = bom; CEO de multinacional, político = ruim)
+- LOCALIZAÇÃO (20pts): prioridade para São Paulo, RJ, BH, ES, Sul do Brasil
+- QUALIDADE DO PERFIL (15pts): quão completo e detalhado é o perfil
+
+Lead para análise:
+- Nome: {name}
+- Cargo: {job_title}
+- Empresa: {company}
+- Localização: {location}
+- Bio/Snippet: {bio}
+- Fonte: {source}
+
+Responda APENAS com JSON válido neste formato:
+{{"score": 72, "label": "Hot", "reason": "Médico entusiasta de bitcoin em SP, alta acessibilidade"}}
+
+Labels: Hot (65-100), Warm (35-64), Cold (0-34).
+reason deve ter no máximo 80 caracteres."""
+
+
+def ai_score_lead(lead) -> dict | None:
+    """
+    Usa Claude API (Haiku) para scoring inteligente do lead.
+    Retorna dict com score, label, reason ou None se API indisponível.
+    """
+    import config
+    api_key = getattr(config, "ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return None
+
+    try:
+        import anthropic
+    except ImportError:
+        log.warning("[scorer] anthropic SDK não instalado — usando scoring por keywords")
+        return None
+
+    prompt = AI_SCORING_PROMPT.format(
+        name=lead.name or "",
+        job_title=lead.job_title or "",
+        company=lead.company or "",
+        location=lead.location or "",
+        bio=lead.bio or "(sem bio)",
+        source=lead.source or "",
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+
+        # Extrair JSON da resposta
+        if "{" in text:
+            json_str = text[text.index("{"):text.rindex("}") + 1]
+            result = json.loads(json_str)
+            result["score"] = max(0, min(100, int(result.get("score", 0))))
+            result["label"] = score_label(result["score"])
+            return result
+    except Exception as e:
+        log.error(f"[scorer] Erro na API Claude: {e}")
+
+    return None
+
+
+def ai_score_leads_batch(leads: list, callback=None) -> list[dict]:
+    """
+    Faz scoring via IA de uma lista de leads.
+    callback(i, total, result) é chamado após cada lead processado.
+    Retorna lista de dicts com score/label/reason.
+    """
+    results = []
+    for i, lead in enumerate(leads):
+        result = ai_score_lead(lead)
+        if result is None:
+            # Fallback para keyword scoring
+            s = score_lead(lead)
+            result = {"score": s, "label": score_label(s), "reason": "scoring por keywords (sem IA)"}
+        results.append(result)
+        if callback:
+            callback(i, len(leads), result)
+    return results

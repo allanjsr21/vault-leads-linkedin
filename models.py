@@ -19,6 +19,8 @@ class Lead:
     company: str = ""
     location: str = ""
     bio: str = ""             # snippet do perfil (headline + about)
+    email: str = ""           # e-mail encontrado via enrichment
+    ai_score: str = ""        # score da IA (JSON com nota + reasoning)
     source: str = ""          # "brave" | "google" | "linkedin_content"
     status: str = "pending"   # "pending" | "approved" | "sent" | "failed" | "skipped"
     sent_at: str = ""
@@ -32,7 +34,8 @@ class Lead:
 
 FIELDNAMES = [
     "name", "first_name", "linkedin_url", "job_title", "company",
-    "location", "bio", "source", "status", "sent_at", "error", "collected_at",
+    "location", "bio", "email", "ai_score", "source", "status",
+    "sent_at", "error", "collected_at",
 ]
 
 
