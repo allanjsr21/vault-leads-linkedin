@@ -457,6 +457,18 @@ st.markdown("""
         overflow: hidden !important;
         box-shadow: 0 8px 40px rgba(0,0,0,0.4) !important;
     }
+    /* Garante toolbar visível (fullscreen, download, search) */
+    [data-testid="stElementToolbar"] {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    [data-testid="stElementToolbar"] button {
+        color: rgba(212,175,55,0.5) !important;
+    }
+    [data-testid="stElementToolbar"] button:hover {
+        color: #d4af37 !important;
+        background: rgba(212,175,55,0.1) !important;
+    }
 
     hr {
         border: none !important;
