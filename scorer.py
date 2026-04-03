@@ -1,172 +1,196 @@
 """
 scorer.py — Sistema de pontuação de leads para Vault Capital
 
-Sweet spot: sócios de PMEs, empreendedores, gerentes, consultores, analistas sênior.
-Penaliza: C-Suite de grandes empresas (CEO/CFO de corp) — difíceis de contactar.
+Filosofia: pontuar por INTERESSE em bitcoin, não por cargo.
+O público-alvo é pessoa física que investe ou quer investir em bitcoin,
+independente da profissão. Um médico entusiasta vale mais que um CEO de exchange.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from leads_manager import Lead
 
 
-# ── Pontuação por cargo (0–40 pts) ────────────────────────────────────────────
-# Foco: acessíveis e com capital para Bitcoin self-custody
+# ── Sinais de interesse na bio/snippet (0–40 pts) ────────────────────────────
+# Esses termos aparecem no snippet do LinkedIn (headline + about section)
+# Quem menciona esses termos no perfil DEMONSTRA interesse pessoal.
 
-SENIORITY_SCORES: list[tuple[list[str], int]] = [
+INTEREST_SIGNALS: list[tuple[list[str], int]] = [
+    # Tier S — Autocustódia explícita (máxima intenção para o produto)
+    (["autocustodia", "autocustódia", "self.custody", "self custody",
+      "cold wallet", "hardware wallet", "ledger", "trezor",
+      "not your keys", "nao sua chave", "não sua chave",
+      "soberania financeira", "guardo meu bitcoin", "meu bitcoin"], 40),
 
-    # Tier S — Sócios/donos de PME: pessoa física com decisão e capital
-    (["sócio", "socio", "co-fundador", "cofundador", "co-founder",
-      "cofounder", "dono", "proprietário", "proprietario",
-      "sócia", "socia"], 38),
+    # Tier A — Autodeclaração de interesse em bitcoin
+    (["entusiasta bitcoin", "entusiasta de bitcoin", "entusiasta cripto",
+      "entusiasta de cripto", "apaixonado por bitcoin", "apaixonado por cripto",
+      "bitcoiner", "bitcoin maximalist", "bitcoin maxi", "btc maxi",
+      "bitcoin enthusiast", "crypto enthusiast", "hodler", "hodl",
+      "stacking sats", "stack sats", "dca bitcoin"], 35),
 
-    # Tier A — Empreendedores e profissionais autônomos
-    (["empreendedor", "empreendedora", "empresário", "empresaria",
-      "autônomo", "autonomo", "freelancer", "consultor", "consultora",
-      "advisor", "assessor"], 34),
+    # Tier B — Investidor pessoal em cripto
+    (["investidor bitcoin", "investidor de bitcoin", "investidor cripto",
+      "investidor de cripto", "invisto em bitcoin", "compro bitcoin",
+      "acumulando bitcoin", "bitcoin longo prazo", "investimento em cripto",
+      "minha carteira cripto", "minha carteira bitcoin",
+      "patrimônio digital", "patrimonio digital", "alocação em cripto",
+      "diversificação cripto"], 28),
 
-    # Tier B — Gestão média acessível
+    # Tier C — Interesse geral em blockchain/cripto/fintech
+    (["bitcoin", "btc", "blockchain", "crypto", "cripto", "criptomoeda",
+      "criptoativo", "web3", "defi", "nft", "ethereum", "eth",
+      "satoshi", "halving"], 18),
+
+    # Tier D — Interesse em finanças/investimentos (pode incluir cripto)
+    (["investidor", "investor", "fintech", "mercado financeiro",
+      "renda variável", "renda variavel", "day trade", "swing trade",
+      "bolsa de valores", "ações", "acoes", "investimento alternativo",
+      "family office", "wealth management", "gestão de patrimônio",
+      "gestao de patrimonio"], 10),
+]
+
+
+# ── Acessibilidade do lead (0–25 pts) ────────────────────────────────────────
+# Não queremos C-Suite de grandes empresas (difíceis de contactar).
+# Queremos profissionais acessíveis de qualquer área.
+
+ACCESSIBILITY_SCORES: list[tuple[list[str], int]] = [
+    # Tier S — Autônomos, donos de PME, consultores (muito acessíveis)
+    (["autônomo", "autonomo", "freelancer", "consultor", "consultora",
+      "dono", "proprietário", "proprietario",
+      "sócio", "socio", "co-fundador", "cofundador",
+      "empreendedor", "empreendedora", "empresário", "empresaria",
+      "profissional liberal", "advisor", "assessor"], 25),
+
+    # Tier A — Profissionais qualificados (acessíveis + com renda)
+    (["médico", "medico", "advogado", "engenheiro", "engenheira",
+      "dentista", "arquiteto", "contador", "contadora",
+      "professor", "professora", "psicólogo", "psicologa",
+      "veterinário", "veterinaria", "farmacêutico", "farmaceutica",
+      "fisioterapeuta", "nutricionista", "cirurgião", "cirurgiao"], 22),
+
+    # Tier B — Gestão média (acessíveis em empresas)
     (["gerente", "manager", "head", "coordenador", "coordenadora",
       "líder", "lider", "supervisor", "especialista", "expert",
-      "analista sênior", "analista senior", "senior analyst"], 28),
+      "analista sênior", "analista senior", "senior analyst",
+      "tech lead", "product manager", "product owner"], 18),
 
-    # Tier C — Fundadores/diretores (podem ser de empresa pequena ou grande)
-    (["fundador", "fundadora", "founder", "diretor", "diretora",
-      "director"], 22),
+    # Tier C — Desenvolvedores/tech (tech-savvy, entendem cripto)
+    (["desenvolvedor", "developer", "engenheiro de software",
+      "software engineer", "programador", "full stack", "backend",
+      "frontend", "devops", "data scientist", "data engineer",
+      "machine learning", "cybersecurity", "infosec"], 15),
 
-    # Tier D — C-Suite: alto cargo mas difícil de contactar em grandes empresas
-    # Mantemos score moderado — podem ser CEOs de startup de 3 pessoas
-    (["cto", "coo", "cmo", "cpo", "ciso"], 18),
+    # Tier D — Diretores (podem ser acessíveis em empresas menores)
+    (["diretor", "diretora", "director", "fundador", "fundadora",
+      "founder"], 12),
 
-    # Tier E — CEO/CFO/VP: penalizado porque geralmente são grandes empresas
+    # Tier E — C-Suite (difíceis de contactar, penalizar)
     (["ceo", "chief executive", "presidente", "president",
-      "cfo", "chief financial", "vp ", "vice president",
-      "vice-president", "vicepresidente"], 10),
-
-    # Tier F — Júnior: pouco capital disponível
-    (["analista", "analyst", "assistente", "assistant",
-      "trainee", "estagiário", "estagiaria", "estudante",
-      "intern", "júnior", "junior"], 8),
+      "cfo", "chief financial", "cto", "chief technology",
+      "coo", "vp ", "vice president", "vice-president"], 5),
 ]
 
 
-# ── Sinais de interesse no produto (0–30 pts) ────────────────────────────────
-# Qualquer pessoa que demonstre interesse em Bitcoin, finanças alternativas
-# ou proteção patrimonial é potencial cliente — não apenas por cargo.
-
-CRYPTO_SIGNALS: list[tuple[list[str], int]] = [
-    # Autocustódia / self-custody explícito — máxima intenção
-    (["autocustodia", "autocustódia", "self.custody", "self custody",
-      "cold wallet", "hardware wallet", "ledger", "trezor", "hodl", "hodler",
-      "bitcoin maxi", "bitcoin maximalist"], 30),
-
-    # Bitcoin/cripto no cargo — interesse declarado profissionalmente
-    (["bitcoin", "btc", "cripto", "crypto", "blockchain",
-      "web3", "defi", "satoshi", "nft"], 25),
-
-    # Proteção patrimonial e investimento alternativo
-    # Ex: advogado especialista em planejamento patrimonial, gestor de patrimônio
-    (["planejamento patrimonial", "proteção patrimonial", "gestão de patrimônio",
-      "family office", "multifamily", "wealth management", "gestão de ativos",
-      "asset management", "renda variável", "renda variavel", "alocação",
-      "alocacao", "portfólio", "portfolio"], 22),
-
-    # Perfis de tecnologia — tech-savvy, mais propensos à autocustódia
-    (["desenvolvedor", "developer", "engenheiro de software", "software engineer",
-      "programador", "programmer", "devops", "arquiteto de software",
-      "full stack", "backend", "frontend", "data engineer", "machine learning",
-      "segurança da informação", "cybersecurity", "infosec", "sre"], 18),
-
-    # Finanças e mercado — conhecem riscos financeiros, abertos a alternativas
-    (["investidor", "investor", "fintech", "finanças", "financas",
-      "mercado financeiro", "gestor", "assessor de investimentos",
-      "planejador financeiro", "cfa", "agente autônomo", "aai"], 15),
-
-    # Empreendedorismo e negócios — entendem valor, tomam decisões próprias
-    (["startup", "venture", "angel", "acelerador", "accelerator",
-      "inovação", "inovacao", "ecossistema", "scale-up"], 12),
-]
-
-
-# ── Geolocalização (0–20 pts) ──────────────────────────────────────────────────
+# ── Geolocalização (0–20 pts) ────────────────────────────────────────────────
 LOCATION_SCORES: list[tuple[list[str], int]] = [
-    # Sudeste prioritário
-    (["são paulo", "sao paulo", "sp,", "greater são paulo",
-      "região metropolitana de são paulo", "campinas", "santos",
-      "ribeirão preto", "sorocaba", "guarulhos", "abc paulista"], 20),
-    (["rio de janeiro", "rj,", "niterói", "niteroi",
-      "greater rio", "região metropolitana do rio"], 18),
-    (["belo horizonte", "bh,", "mg,", "contagem", "betim",
-      "greater belo horizonte", "região metropolitana de belo horizonte"], 16),
-    (["espírito santo", "espirito santo", "vitória", "vitoria",
-      "vila velha", "es,"], 15),
-    # Sul
+    (["são paulo", "sao paulo", "sp,", "campinas", "santos",
+      "ribeirão preto", "sorocaba", "guarulhos"], 20),
+    (["rio de janeiro", "rj,", "niterói", "niteroi"], 18),
+    (["belo horizonte", "bh,", "mg,", "contagem"], 16),
+    (["espírito santo", "espirito santo", "vitória", "vitoria", "es,"], 15),
     (["curitiba", "pr,", "londrina", "maringá", "maringa",
       "florianópolis", "florianopolis", "porto alegre", "rs,",
       "joinville", "blumenau"], 14),
-    # Centro-Oeste + Nordeste grandes centros
     (["brasília", "brasilia", "df,", "goiânia", "goiania",
-      "salvador", "ba,", "recife", "pe,", "fortaleza", "ce,",
-      "manaus", "am,", "belém", "belem", "pa,"], 10),
-    # Brasil genérico
-    (["brasil", "brazil", "br,", "br "], 6),
+      "salvador", "ba,", "recife", "pe,", "fortaleza", "ce,"], 10),
+    (["brasil", "brazil"], 6),
 ]
 
 
-# ── Qualidade do perfil (0–10 pts) ────────────────────────────────────────────
+# ── Qualidade do perfil (0–15 pts) ───────────────────────────────────────────
 def _profile_quality(lead) -> int:
     pts = 0
     if lead.company and lead.company.strip():
-        pts += 4
+        pts += 3
     if lead.location and lead.location.strip():
         pts += 3
     if lead.name and len(lead.name.strip().split()) >= 2:
         pts += 2
     if lead.job_title and len(lead.job_title.strip()) > 3:
-        pts += 1
+        pts += 2
+    if lead.bio and len(lead.bio.strip()) > 30:
+        pts += 3  # bio rica = perfil detalhado
+    if lead.source == "linkedin_content":
+        pts += 2  # autor de conteúdo = engajamento alto
     return pts
 
 
-# ── Função principal ──────────────────────────────────────────────────────────
+# ── Penalizações ─────────────────────────────────────────────────────────────
+# Perfis de empresas/exchanges/políticos que passaram pelo filtro
+
+PENALTY_SIGNALS: list[str] = [
+    "exchange", "binance", "mercado bitcoin", "foxbit", "novadax",
+    "coinbase", "bitso", "okx", "bybit", "kraken", "bitget",
+    "board member", "chairman", "deputado", "senador",
+    "ministro", "governador", "prefeito", "embaixador",
+    "recrutador", "recruiter", "headhunter", "rh ",
+    "human resources", "recursos humanos",
+]
+
+
+# ── Função principal ─────────────────────────────────────────────────────────
 def score_lead(lead) -> int:
     """
     Retorna um score de 0–100 para o lead.
 
-    Hot  → 65–100  (abordar primeiro)
+    Hot  → 65–100  (abordar primeiro — alto interesse + acessível)
     Warm → 35–64   (fila normal)
     Cold → 0–34    (baixa prioridade)
     """
     score = 0
-    jt  = (lead.job_title or "").lower()
-    loc = (lead.location  or "").lower()
 
-    # Seniority
-    for keywords, pts in SENIORITY_SCORES:
-        if any(kw in jt for kw in keywords):
+    # Combinar todos os textos do lead para análise
+    bio_text = (lead.bio or "").lower()
+    jt_text  = (lead.job_title or "").lower()
+    all_text = f"{bio_text} {jt_text}".strip()
+
+    # ── Sinais de interesse (0–40 pts) — MAIS IMPORTANTE ────────────────
+    for keywords, pts in INTEREST_SIGNALS:
+        if any(kw in all_text for kw in keywords):
             score += pts
             break
     else:
-        score += 5  # cargo desconhecido — neutro
+        score += 2  # nenhum sinal de interesse explícito
 
-    # Sinais cripto (acumula apenas 1 tier)
-    for keywords, pts in CRYPTO_SIGNALS:
-        if any(kw in jt for kw in keywords):
+    # ── Acessibilidade do cargo (0–25 pts) ──────────────────────────────
+    for keywords, pts in ACCESSIBILITY_SCORES:
+        if any(kw in jt_text for kw in keywords):
             score += pts
             break
+    else:
+        score += 8  # cargo desconhecido — neutro
 
-    # Localização (acumula apenas 1 tier)
+    # ── Localização (0–20 pts) ──────────────────────────────────────────
+    loc = (lead.location or "").lower()
     for keywords, pts in LOCATION_SCORES:
         if any(kw in loc for kw in keywords):
             score += pts
             break
 
-    # Qualidade do perfil
+    # ── Qualidade do perfil (0–15 pts) ──────────────────────────────────
     score += _profile_quality(lead)
 
-    return min(score, 100)
+    # ── Penalizações ────────────────────────────────────────────────────
+    for penalty in PENALTY_SIGNALS:
+        if penalty in all_text:
+            score -= 20
+            break
+
+    return max(0, min(score, 100))
 
 
 def score_label(score: int) -> str:
@@ -176,13 +200,3 @@ def score_label(score: int) -> str:
         return "Warm"
     else:
         return "Cold"
-
-
-def score_color(score: int) -> str:
-    """Retorna classe CSS para badge de score."""
-    if score >= 65:
-        return "score-hot"
-    elif score >= 35:
-        return "score-warm"
-    else:
-        return "score-cold"

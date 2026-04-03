@@ -114,6 +114,7 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
         job_title=job_title,
         company=company,
         location=location,
+        bio=description[:300] if description else "",
         source=source,
         status="pending",
     )
@@ -199,7 +200,20 @@ def search_by_keywords(
     keywords   = keywords or config.SEARCH_KEYWORDS
     exclusions = getattr(config, "SEARCH_EXCLUSIONS", "")
     leads: list[Lead] = []
+
+    # ── Deduplicação cross-run: carregar leads já existentes ──────────────
     seen_urls: set[str] = set()
+    try:
+        from leads_manager import load_leads
+        existing = load_leads()
+        seen_urls = set(existing.keys())
+        log.info(f"[scraper] {len(seen_urls)} leads existentes carregados para dedup")
+    except Exception:
+        pass  # primeira execução, sem leads anteriores
+
+    # ── Randomizar ordem das keywords (evita mesmos resultados) ──────────
+    keywords = list(keywords)
+    random.shuffle(keywords)
 
     has_brave  = bool(config.BRAVE_SEARCH_API_KEY)
     has_google = bool(getattr(config, "GOOGLE_CSE_API_KEY", "")) and bool(getattr(config, "GOOGLE_CSE_ID", ""))
@@ -314,18 +328,29 @@ def search_by_post_engagement(
     seen_urls: set[str] = set()
 
     # Tópicos de conteúdo crypto em PT-BR
+    # Foco: quem ESCREVE e COMPARTILHA sobre bitcoin = alto interesse pessoal
     content_queries = [
-        # Artigos LinkedIn Pulse
-        'site:linkedin.com/pulse "bitcoin" "autocustodia" Brazil',
-        'site:linkedin.com/pulse "bitcoin" "carteira fria" Brasil',
+        # Artigos LinkedIn Pulse sobre autocustódia
+        'site:linkedin.com/pulse "bitcoin" "autocustodia" Brasil',
         'site:linkedin.com/pulse "bitcoin" "hardware wallet" Brasil',
-        'site:linkedin.com/pulse "bitcoin" "soberania financeira" Brasil',
-        'site:linkedin.com/pulse "cripto" "patrimônio" Brasil',
-        # Posts LinkedIn
+        'site:linkedin.com/pulse "bitcoin" "soberania financeira"',
+        'site:linkedin.com/pulse "bitcoin" "investimento" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "longo prazo" Brasil',
+        'site:linkedin.com/pulse "criptomoeda" "investir" Brasil',
+        # Posts LinkedIn sobre bitcoin (quem posta = demonstra interesse)
         'site:linkedin.com/posts "bitcoin" "autocustodia"',
-        'site:linkedin.com/posts "bitcoin" "hodl" Brasil',
+        'site:linkedin.com/posts "bitcoin" "hodl"',
+        'site:linkedin.com/posts "comprei bitcoin"',
+        'site:linkedin.com/posts "meu bitcoin"',
+        'site:linkedin.com/posts "entusiasta" "bitcoin"',
         'site:linkedin.com/posts "bitcoin" "cold wallet"',
+        'site:linkedin.com/posts "bitcoin" "São Paulo"',
+        'site:linkedin.com/posts "bitcoin" "Rio de Janeiro"',
+        # Compartilhamentos de conteúdo crypto
+        'site:linkedin.com/posts "bitcoin" "soberania"',
+        'site:linkedin.com/posts "cripto" "investimento pessoal"',
     ]
+    random.shuffle(content_queries)
 
     for query in content_queries:
         if len(leads) >= max_results:

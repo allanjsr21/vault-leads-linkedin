@@ -49,37 +49,76 @@ def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[s
 # ── Perfis de Público ──────────────────────────────────────────────────────────
 # Cada perfil tem: keywords, mensagem e nome da planilha
 
+# ── Autocustódia: pessoas que TÊM INTERESSE em bitcoin (não profissionais cripto) ──
+# Foco em sinais de interesse: entusiasta, investidor pessoal, hodler
+
 _AUTOCUSTODIA_TOPICS = [
-    "bitcoin autocustodia",
-    "bitcoin hardware wallet",
-    "hodler bitcoin",
-    "bitcoin cold storage",
-    "ledger trezor bitcoin",
-    "bitcoin self custody",
+    # Autodeclarações de interesse (o que escrevem no perfil)
+    '"entusiasta bitcoin"',
+    '"entusiasta de bitcoin"',
+    '"entusiasta cripto"',
+    '"apaixonado por bitcoin"',
+    '"bitcoin enthusiast"',
+    '"investidor bitcoin"',
+    '"bitcoiner"',
+    # Sinais de atividade / ownership
+    '"hodler" bitcoin',
+    '"investidor de criptomoedas"',
+    '"acumulando bitcoin"',
+    '"DCA bitcoin"',
+    # Sinais de autocustódia
+    '"cold wallet"',
+    '"hardware wallet" pessoal',
+    '"soberania financeira"',
+    # Profissão + interesse (qualquer profissional que mencione bitcoin)
+    '"médico" "bitcoin"',
+    '"advogado" "bitcoin"',
+    '"engenheiro" "bitcoin"',
+    '"empresário" "bitcoin"',
+    '"dentista" "bitcoin"',
+    '"arquiteto" "bitcoin"',
+    '"professor" "bitcoin"',
+    '"contador" "bitcoin"',
 ]
 
 _AUTOCUSTODIA_GENERIC = [
-    "bitcoin soberania financeira pessoal Brasil",
-    "guardando bitcoin cold wallet Brasil",
-    "trezor ledger bitcoin brasileiro",
-    "meu bitcoin minha chave Brasil",
-    "bitcoin nao sua chave nao sua moeda",
+    '"entusiasta bitcoin" Brasil',
+    '"investidor bitcoin" Brasil',
+    '"apaixonado por bitcoin" Brasil',
+    '"bitcoin hodler" Brasil',
+    '"meu bitcoin" Brasil',
+    '"soberania financeira" bitcoin Brasil',
+    '"bitcoiner" brasileiro',
+    '"entusiasta de criptomoedas" Brasil',
+    '"not your keys" Brasil',
+    '"interessado em bitcoin" Brasil',
 ]
 
+# ── Consultoria: pessoas com patrimônio que querem orientação sobre cripto ──
+# Foco em profissionais de alta renda que demonstram interesse em cripto
+
 _CONSULTORIA_TOPICS = [
-    "empresario investindo bitcoin",
-    "empreendedor reserva bitcoin",
-    "socio fundador bitcoin",
-    "investidor anjo bitcoin",
-    "empresario cripto",
+    '"investidor" "bitcoin"',
+    '"patrimônio" "bitcoin"',
+    '"diversificação" "bitcoin"',
+    '"alocação" "cripto"',
+    '"investidor" "criptomoeda"',
+    '"entusiasta" "blockchain"',
+    '"empresário" "cripto"',
+    '"empreendedor" "bitcoin"',
+    '"gestão de patrimônio" "cripto"',
+    '"family office" "bitcoin"',
+    '"investimento alternativo" "bitcoin"',
 ]
 
 _CONSULTORIA_GENERIC = [
-    "CFO patrimonio digital Brasil",
-    "diretor executivo cripto Brasil",
-    "empresario bitcoin Brasil",
-    "fundador startup cripto Brasil",
-    "gestao patrimonio criptoativos Brasil",
+    '"investidor bitcoin" Brasil',
+    '"patrimônio digital" Brasil',
+    '"diversificação cripto" Brasil',
+    '"alocação em bitcoin" Brasil',
+    '"consultoria cripto" Brasil',
+    '"assessoria bitcoin" Brasil',
+    '"gestão patrimônio" "criptoativos" Brasil',
 ]
 
 AUDIENCE_PROFILES = {

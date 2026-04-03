@@ -388,6 +388,7 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
             job_title    = row.get("job_title", ""),
             company      = row.get("company", ""),
             location     = row.get("location", ""),
+            bio          = row.get("bio", ""),
             status       = row.get("status", "pending"),
             source       = row.get("source", ""),
         )

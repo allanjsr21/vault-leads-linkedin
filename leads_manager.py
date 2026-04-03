@@ -10,6 +10,7 @@ import logging
 import os
 from dataclasses import asdict
 from datetime import datetime
+from models import BRT
 from typing import Optional
 
 import config
@@ -108,7 +109,7 @@ def get_approved_leads(limit: Optional[int] = None) -> list[Lead]:
 
 
 def count_sent_today() -> int:
-    today = datetime.now().date().isoformat()
+    today = datetime.now(BRT).date().isoformat()
     leads = load_leads()
     return sum(
         1 for l in leads.values()
@@ -132,7 +133,7 @@ def print_summary() -> None:
     }
 
     print(f"\n{'='*45}")
-    print(f"  RESUMO DE LEADS — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"  RESUMO DE LEADS — {datetime.now(BRT).strftime('%d/%m/%Y %H:%M')}")
     print(f"{'='*45}")
     print(f"  Total:              {total}")
     for status in ["pending", "approved", "sent", "failed", "skipped"]:
@@ -188,5 +189,5 @@ def _csv_update_lead_status(linkedin_url: str, status: str, error: str = "") -> 
         leads[key].status = status
         leads[key].error = error
         if status == "sent":
-            leads[key].sent_at = datetime.now().isoformat()
+            leads[key].sent_at = datetime.now(BRT).isoformat()
     _csv_save_leads(leads)

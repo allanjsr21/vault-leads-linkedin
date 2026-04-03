@@ -62,10 +62,11 @@ SHEET_COLUMNS = [
     "job_title",     # D
     "company",       # E
     "location",      # F
-    "source",        # G
-    "sent_at",       # H
-    "error",         # I
-    "collected_at",  # J
+    "bio",           # G
+    "source",        # H
+    "sent_at",       # I
+    "error",         # J
+    "collected_at",  # K
 ]
 
 COLUMN_LABELS = {
@@ -75,6 +76,7 @@ COLUMN_LABELS = {
     "job_title":    "Cargo",
     "company":      "Empresa",
     "location":     "Localização",
+    "bio":          "Bio / Interesses",
     "source":       "Origem",
     "sent_at":      "DM Enviada em",
     "error":        "Erro",
@@ -88,10 +90,11 @@ COLUMN_WIDTHS = [
     220,  # D — Cargo
     180,  # E — Empresa
     150,  # F — Localização
-    130,  # G — Origem
-    160,  # H — DM Enviada em
-    200,  # I — Erro
-    160,  # J — Coletado em
+    280,  # G — Bio / Interesses
+    100,  # H — Origem
+    160,  # I — DM Enviada em
+    200,  # J — Erro
+    140,  # K — Coletado em
 ]
 
 NUM_COLS = len(SHEET_COLUMNS)
@@ -327,6 +330,7 @@ def sheets_load_leads() -> dict[str, Lead]:
             job_title=record.get("job_title", ""),
             company=record.get("company", ""),
             location=record.get("location", ""),
+            bio=record.get("bio", ""),
             source=record.get("source", ""),
             status=record.get("status", "pending"),
             sent_at=record.get("sent_at", ""),
@@ -421,7 +425,8 @@ def sheets_update_lead_status(url: str, status: str, error: str = "") -> None:
             if error_col is not None:
                 cells.append(gspread.Cell(row_idx, error_col + 1, error))
             if status == "sent" and sent_at_col is not None:
-                cells.append(gspread.Cell(row_idx, sent_at_col + 1, datetime.now().isoformat()))
+                from models import BRT
+                cells.append(gspread.Cell(row_idx, sent_at_col + 1, datetime.now(BRT).strftime("%Y-%m-%d %H:%M")))
             worksheet.update_cells(cells)
             log.info(f"Status atualizado no Sheets: {url} → {status}")
             return

@@ -4,7 +4,10 @@ Separado de leads_manager para evitar importações circulares.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# Fuso horário de Brasília (UTC-3)
+BRT = timezone(timedelta(hours=-3))
 
 
 @dataclass
@@ -15,11 +18,12 @@ class Lead:
     job_title: str = ""
     company: str = ""
     location: str = ""
-    source: str = ""          # "keyword_search" | "post_engagement"
+    bio: str = ""             # snippet do perfil (headline + about)
+    source: str = ""          # "brave" | "google" | "linkedin_content"
     status: str = "pending"   # "pending" | "approved" | "sent" | "failed" | "skipped"
     sent_at: str = ""
     error: str = ""
-    collected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    collected_at: str = field(default_factory=lambda: datetime.now(BRT).strftime("%Y-%m-%d %H:%M"))
 
     def __post_init__(self):
         if not self.first_name and self.name:
@@ -28,7 +32,7 @@ class Lead:
 
 FIELDNAMES = [
     "name", "first_name", "linkedin_url", "job_title", "company",
-    "location", "source", "status", "sent_at", "error", "collected_at",
+    "location", "bio", "source", "status", "sent_at", "error", "collected_at",
 ]
 
 
