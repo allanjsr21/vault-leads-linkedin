@@ -68,8 +68,9 @@ def _location_allowed(location: str) -> bool:
     for allowed in _ALLOWED_REGIONS:
         if allowed in loc_lower:
             return True
-    # Localização presente mas não reconhecida → aceita (pode ser abreviação)
-    return True
+    # Localização presente mas NÃO reconhecida → REJEITA (outro país, outra região)
+    log.debug(f"[scraper] Localização não reconhecida (rejeitado): {location}")
+    return False
 
 
 # ── Parser de resultados ────────────────────────────────────────────────────────
