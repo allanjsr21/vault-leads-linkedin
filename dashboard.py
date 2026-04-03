@@ -282,7 +282,7 @@ st.markdown("""
         font-size: 1.3rem;
         margin-bottom: 0.7rem;
         display: block;
-        filter: drop-shadow(0 0 12px currentColor);
+        opacity: 0.7;
     }
     .metric-number {
         font-family: 'Space Grotesk', sans-serif;
@@ -291,7 +291,7 @@ st.markdown("""
         letter-spacing: -0.04em;
         line-height: 1;
         display: block;
-        text-shadow: 0 0 30px currentColor, 0 0 60px currentColor, 0 0 100px currentColor;
+        text-shadow: none;
     }
     .metric-label {
         font-family: 'Inter', sans-serif;
