@@ -58,23 +58,28 @@ _BLOCKED_REGIONS = [
 def _location_allowed(location: str, full_text: str = "") -> bool:
     """Retorna True se a localização do lead está nas regiões permitidas."""
     if not location:
-        # Sem localização detectada → checar se há ALGUM sinal de Brasil no texto
+        # Sem localização detectada → checar se há sinal FORTE de Brasil no texto
+        # (cidade específica, não "Brazil/Brasil" genérico que vem da query de busca)
         if full_text:
             ft_lower = full_text.lower()
-            brazil_signals = [
-                "brazil", "brasil", "são paulo", "rio de janeiro",
-                "belo horizonte", "curitiba", "brasília", "porto alegre",
-                "florianópolis", "campinas", "goiânia", "vitória",
+            strong_brazil_signals = [
+                "são paulo", "rio de janeiro", "belo horizonte",
+                "curitiba", "brasília", "porto alegre", "florianópolis",
+                "campinas", "goiânia", "vitória", "santos", "joinville",
+                "ribeirão preto", "uberlândia", "sorocaba", "londrina",
+                "maringá", "blumenau", "niterói", "juiz de fora",
                 ", sp", ", rj", ", mg", ", pr", ", sc", ", rs", ", df",
+                "minas gerais", "paraná", "santa catarina",
+                "rio grande do sul", "distrito federal",
             ]
-            for signal in brazil_signals:
+            for signal in strong_brazil_signals:
                 if signal in ft_lower:
                     return True
-            # Nenhum sinal de Brasil no texto → rejeita
-            log.debug(f"[scraper] Sem localização e sem sinal de Brasil no texto (rejeitado)")
+            # Nenhum sinal forte de Brasil → rejeita
+            log.debug(f"[scraper] Sem localização e sem sinal forte de Brasil (rejeitado)")
             return False
-        # Sem localização e sem texto → aceita (não temos como saber)
-        return True
+        # Sem localização e sem texto → rejeita (melhor perder do que aceitar lixo)
+        return False
     loc_lower = location.lower()
     # Se menciona região bloqueada → rejeita
     for blocked in _BLOCKED_REGIONS:
@@ -124,6 +129,13 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
     name = re.split(r"\s*[-–|]\s*", title)[0].strip()
     if not name:
         return None
+    # Rejeitar "nomes" que são claramente títulos de artigo/post (não pessoas)
+    name_words = name.split()
+    if len(name_words) > 6:  # nomes reais raramente têm mais de 6 palavras
+        return None
+    # Se tem caracteres estranhos para nomes (!, ?, :, números no início)
+    if re.search(r"[!?:]|^\d", name):
+        return None
 
     # ── Cargo e empresa ───────────────────────────────────────────────────────
     title_parts = re.split(r"\s*[-–|]\s*", title)
@@ -164,11 +176,9 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
                 log.debug(f"[scraper] Descartado (cargo inalcançável): {name} - {job_title}")
                 return None
 
-    # ── Fallback de localização: extrai do keyword ────────────────────────────
-    if not location and keyword:
-        kw_match = BR_PATTERN.search(keyword)
-        if kw_match:
-            location = kw_match.group(0).strip()
+    # NOTA: NÃO usar keyword como fallback de localização.
+    # A keyword contém cidades brasileiras, mas isso não significa
+    # que o lead é dessa cidade. Isso gerava falsos positivos.
 
     # ── Filtro de região (Sudeste + Centro-Oeste + Sul apenas) ───────────────
     full_text = f"{title} {description}"
