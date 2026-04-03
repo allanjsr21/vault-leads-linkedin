@@ -246,9 +246,13 @@ def send_email_followup(lead: Lead) -> bool:
 
     body = email_body.format(first_name=lead.first_name or lead.name)
 
+    reply_to = getattr(config, "GMAIL_REPLY_TO", "") or gmail_user
+    sender_name = getattr(config, "GMAIL_SENDER_NAME", "Vault Capital")
+
     try:
         msg = MIMEMultipart()
-        msg["From"] = gmail_user
+        msg["From"] = f"{sender_name} <{gmail_user}>"
+        msg["Reply-To"] = reply_to
         msg["To"] = lead.email
         msg["Subject"] = email_subject
         msg.attach(MIMEText(body, "plain", "utf-8"))

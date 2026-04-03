@@ -23,8 +23,12 @@ ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY", "")
 HUNTER_API_KEY = _get_secret("HUNTER_API_KEY", "")
 
 # ── Gmail SMTP — para envio de email follow-up ───────────────────────────────
+# GMAIL_USER = conta Google com App Password (ex: allan.junior777@gmail.com)
+# GMAIL_REPLY_TO = email profissional que aparece como remetente
 GMAIL_USER         = _get_secret("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = _get_secret("GMAIL_APP_PASSWORD", "")
+GMAIL_REPLY_TO     = _get_secret("GMAIL_REPLY_TO", "allanjunior@vaultcapital.com.br")
+GMAIL_SENDER_NAME  = _get_secret("GMAIL_SENDER_NAME", "Allan Junior | Vault Capital")
 
 # ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
 # Setup: https://programmablesearchengine.google.com → criar engine → search entire web
