@@ -22,6 +22,10 @@ ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY", "")
 # ── Hunter.io — para enriquecimento de email ─────────────────────────────────
 HUNTER_API_KEY = _get_secret("HUNTER_API_KEY", "")
 
+# ── Gmail SMTP — para envio de email follow-up ───────────────────────────────
+GMAIL_USER         = _get_secret("GMAIL_USER", "")
+GMAIL_APP_PASSWORD = _get_secret("GMAIL_APP_PASSWORD", "")
+
 # ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
 # Setup: https://programmablesearchengine.google.com → criar engine → search entire web
 # API key: https://console.cloud.google.com → Custom Search API → Create Credentials
@@ -145,6 +149,22 @@ Se fizer sentido pra voce, adoraria te ver por la! Posso te mandar mais detalhes
 
 Abracos,
 Vault Capital""",
+        "email_subject": "Convite: Evento de Autocustodia Bitcoin — Vault Capital",
+        "email_template": """Ola, {first_name}!
+
+Meu nome e Allan, da Vault Capital. Tentei te contactar pelo LinkedIn, mas queria garantir que voce recebesse nosso convite.
+
+Estamos organizando um evento exclusivo sobre autocustodia de Bitcoin — como guardar seus ativos com seguranca total, sem depender de exchanges.
+
+Se voce ja investe ou tem interesse em Bitcoin, esse evento e pra voce.
+
+Posso te mandar mais detalhes sobre data e local?
+
+Abracos,
+Allan Junior
+Vault Capital
+""",
+        "connection_note": """Ola, {first_name}! Vi que voce tem interesse em Bitcoin. Estou conectando profissionais que investem em cripto de forma independente. Vamos trocar ideias?""",
     },
 
     "2": {
@@ -164,6 +184,22 @@ Se fizer sentido pra voce, adoraria bater um papo rapido. Fico a disposicao!
 
 Abracos,
 Vault Capital""",
+        "email_subject": "Consultoria em Criptoativos — Vault Capital",
+        "email_template": """Ola, {first_name}!
+
+Meu nome e Allan, da Vault Capital. Tentei te contactar pelo LinkedIn e gostaria de me apresentar rapidamente.
+
+Somos uma gestora especializada em criptoativos, focada em atender empresarios e executivos que querem exposicao ao mercado digital com estrategia e seguranca.
+
+Se voce tem interesse em diversificar parte do patrimonio em cripto de forma profissional, adoraria bater um papo rapido de 15 minutos.
+
+Fico a disposicao!
+
+Abracos,
+Allan Junior
+Vault Capital
+""",
+        "connection_note": """Ola, {first_name}! Sou da Vault Capital, gestora especializada em criptoativos. Vi seu perfil e gostaria de conectar para trocar ideias sobre o mercado.""",
     },
 }
 

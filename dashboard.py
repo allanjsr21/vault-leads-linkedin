@@ -465,14 +465,16 @@ pending  = len(df[df["status"] == "pending"])       if total else 0
 approved = len(df[df["status"] == "approved"])      if total else 0
 sent     = len(df[df["status"] == "sent"])          if total else 0
 hot      = len(df[df["prioridade"] == "Hot"])       if total and "prioridade" in df.columns else 0
+emails   = len(df[df["email"].astype(str).str.strip() != ""])  if total and "email" in df.columns else 0
 
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 metric_data = [
     (col1, "fa-users",        total,    "Total de Leads",     "#f0c040", ""),
     (col2, "fa-fire",         hot,      "Hot Leads",          "#fb923c", "metric-card-hot"),
-    (col3, "fa-hourglass-half",pending, "Aguardando",         "#a78bfa", ""),
-    (col4, "fa-circle-check", approved, "Aprovados",          "#34d399", ""),
-    (col5, "fa-paper-plane",  sent,     "DMs Enviadas",       "#60a5fa", ""),
+    (col3, "fa-envelope",     emails,   "Com Email",          "#a78bfa", ""),
+    (col4, "fa-hourglass-half",pending, "Aguardando",         "#e2e8f0", ""),
+    (col5, "fa-circle-check", approved, "Aprovados",          "#34d399", ""),
+    (col6, "fa-paper-plane",  sent,     "DMs Enviadas",       "#60a5fa", ""),
 ]
 for col, icon, value, label, color, extra_class in metric_data:
     with col:
