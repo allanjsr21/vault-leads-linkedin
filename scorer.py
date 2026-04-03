@@ -17,7 +17,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from leads_manager import Lead
+    from models import Lead
 
 log = logging.getLogger(__name__)
 

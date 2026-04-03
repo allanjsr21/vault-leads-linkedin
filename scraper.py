@@ -18,7 +18,7 @@ from typing import Optional
 import requests
 
 import config
-from config import LOCATION_FILTER, MAX_LEADS_PER_RUN, MAX_PAGES_PER_KEYWORD, TITLE_EXCLUSIONS
+from config import MAX_LEADS_PER_RUN, MAX_PAGES_PER_KEYWORD, TITLE_EXCLUSIONS
 from models import Lead, _normalize_url
 
 log = logging.getLogger(__name__)
@@ -302,7 +302,7 @@ def search_by_keywords(
         if len(leads) >= max_results:
             break
 
-        base_query = f"site:linkedin.com/in {keyword} {LOCATION_FILTER}"
+        base_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
         if exclusions:
             base_query += f" {exclusions}"
 
@@ -341,7 +341,7 @@ def search_by_keywords(
 
         # ── Google Custom Search (até 3 páginas de 10) ──
         if has_google:
-            google_query = f"site:linkedin.com/in {keyword} {LOCATION_FILTER}"
+            google_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
             for page in range(3):
                 if len(leads) >= max_results:
                     break
@@ -502,7 +502,12 @@ def search_by_post_engagement(
                 status="pending",
             )
 
-            # Filtrar por TITLE_EXCLUSIONS (mesmo sem job_title)
+            # Filtrar por localização (mesmo critério do search_by_keywords)
+            full_text = f"{title} {description}"
+            if not _location_allowed(location, full_text):
+                log.debug(f"[posts] Descartado (região): {name} - {location}")
+                continue
+
             leads.append(lead)
             if len(leads) >= max_results:
                 break
