@@ -882,6 +882,21 @@ if btn_collect:
             add_log(f"{len(event_leads)} leads de eventos encontrados")
 
             all_leads = keyword_leads + engagement_leads + event_leads
+
+            # ── Filtro inteligente via Gemini (se configurado) ──
+            if getattr(_cfg, "GEMINI_API_KEY", ""):
+                add_log(f"Filtrando {len(all_leads)} leads via Gemini IA...")
+                from gemini_filter import qualify_leads_batch
+                all_leads, rejected = qualify_leads_batch(
+                    all_leads,
+                    callback=lambda i, t, name, r: add_log(
+                        f"  [{i}/{t}] {name}: {'ACEITO' if r is not False else 'REJEITADO'}"
+                    ) if (i % 5 == 0 or r is False) else None,
+                )
+                add_log(f"Gemini: {len(all_leads)} aceitos, {rejected} rejeitados")
+            else:
+                add_log("Gemini não configurado — sem filtro IA")
+
             added, dupes = add_leads(all_leads)
             add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
 

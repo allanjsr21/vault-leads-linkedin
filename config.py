@@ -19,6 +19,9 @@ BRAVE_SEARCH_API_KEY = _get_secret("BRAVE_SEARCH_API_KEY", "")
 # ── Anthropic API (Claude) — para scoring inteligente de leads ───────────────
 ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY", "")
 
+# ── Google Gemini API (filtro inteligente de leads) ──────────────────────────
+GEMINI_API_KEY = _get_secret("GEMINI_API_KEY", "")
+
 # ── Hunter.io — para enriquecimento de email ─────────────────────────────────
 HUNTER_API_KEY = _get_secret("HUNTER_API_KEY", "")
 
