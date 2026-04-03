@@ -337,7 +337,7 @@ st.markdown("""
         font-weight: 600;
         text-shadow: 0 0 10px rgba(52,211,153,0.3);
     }
-    .log-box pre { margin: 0; white-space: pre-wrap; padding-left: 0; padding-top: 1.8rem; }
+    .log-box pre { margin: 0; white-space: pre-wrap; padding-left: 0; padding-top: 2.5rem; }
     .log-box::-webkit-scrollbar { width: 3px; }
     .log-box::-webkit-scrollbar-track { background: transparent; }
     .log-box::-webkit-scrollbar-thumb { background: rgba(52,211,153,0.12); border-radius: 3px; }
