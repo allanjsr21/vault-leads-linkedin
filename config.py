@@ -96,16 +96,16 @@ _AUTOCUSTODIA_TOPICS = [
 ]
 
 _AUTOCUSTODIA_GENERIC = [
-    '"entusiasta bitcoin" Brasil',
-    '"investidor bitcoin" Brasil',
-    '"apaixonado por bitcoin" Brasil',
-    '"bitcoin hodler" Brasil',
-    '"meu bitcoin" Brasil',
-    '"soberania financeira" bitcoin Brasil',
-    '"bitcoiner" brasileiro',
-    '"entusiasta de criptomoedas" Brasil',
-    '"not your keys" Brasil',
-    '"interessado em bitcoin" Brasil',
+    '"entusiasta bitcoin" ("São Paulo" OR "Rio de Janeiro" OR "Belo Horizonte" OR "Curitiba" OR "Porto Alegre" OR "Brasília")',
+    '"investidor bitcoin" ("São Paulo" OR "Rio de Janeiro" OR "Belo Horizonte" OR "Curitiba" OR "Florianópolis")',
+    '"apaixonado por bitcoin" ("São Paulo" OR "Rio de Janeiro" OR "Campinas" OR "Brasília")',
+    '"bitcoin hodler" ("São Paulo" OR "Rio de Janeiro" OR "Curitiba" OR "Porto Alegre")',
+    '"meu bitcoin" ("São Paulo" OR "Belo Horizonte" OR "Brasília")',
+    '"soberania financeira" bitcoin ("São Paulo" OR "Rio de Janeiro" OR "Curitiba")',
+    '"bitcoiner" ("São Paulo" OR "Rio de Janeiro" OR "Belo Horizonte" OR "Porto Alegre" OR "Brasília")',
+    '"entusiasta de criptomoedas" ("São Paulo" OR "Rio de Janeiro" OR "Curitiba" OR "Florianópolis")',
+    '"not your keys" ("São Paulo" OR "Rio de Janeiro" OR "Brasília")',
+    '"interessado em bitcoin" ("São Paulo" OR "Rio de Janeiro" OR "Belo Horizonte" OR "Campinas")',
 ]
 
 # ── Consultoria: pessoas com patrimônio que querem orientação sobre cripto ──
@@ -140,7 +140,7 @@ AUDIENCE_PROFILES = {
         "name": "Autocustodia",
         "description": "Evento de autocustodia — pessoas interessadas em guardar o proprio Bitcoin",
         "keywords": _generate_keywords(_AUTOCUSTODIA_TOPICS, CITIES_PRIORITY, _AUTOCUSTODIA_GENERIC),
-        "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\") Brazil",
+        "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\" OR \"Porto Alegre\" OR \"Florianópolis\" OR \"Brasília\" OR \"Goiânia\" OR \"Vitória\" OR \"Santos\" OR \"Joinville\" OR \"Ribeirão Preto\") Brazil",
         "sheet_name": "Vault — Leads Autocustodia",
         "leads_csv": "leads_autocustodia.csv",
         "dm_template": """Ola, {first_name}! Tudo bem?

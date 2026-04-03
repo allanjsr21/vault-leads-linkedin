@@ -26,6 +26,51 @@ log = logging.getLogger(__name__)
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 GOOGLE_CSE_URL   = "https://www.googleapis.com/customsearch/v1"
 
+# ── Filtro de regiões permitidas (Sudeste + Centro-Oeste + Sul) ──────────────
+# Se o lead tem localização detectada e NÃO está nessas regiões, é descartado
+_ALLOWED_REGIONS = [
+    # Sudeste
+    "são paulo", "rio de janeiro", "belo horizonte", "minas gerais",
+    "espírito santo", "vitória", "campinas", "santos", "ribeirão preto",
+    "sorocaba", "guarulhos", "niterói", "juiz de fora", "uberlândia",
+    # Sul
+    "curitiba", "porto alegre", "florianópolis", "joinville", "londrina",
+    "maringá", "blumenau", "caxias do sul", "paraná", "santa catarina",
+    "rio grande do sul",
+    # Centro-Oeste
+    "brasília", "goiânia", "campo grande", "cuiabá", "goiás",
+    "mato grosso", "mato grosso do sul", "distrito federal",
+    # Genérico
+    "brazil", "brasil", "sp", "rj", "mg", "pr", "sc", "rs", "df", "go",
+]
+
+# Estados do Nordeste/Norte — se aparecerem, rejeita
+_BLOCKED_REGIONS = [
+    "salvador", "recife", "fortaleza", "belém", "manaus", "natal",
+    "joão pessoa", "maceió", "teresina", "são luís", "aracaju",
+    "porto velho", "macapá", "boa vista", "rio branco", "palmas",
+    "bahia", "pernambuco", "ceará", "pará", "amazonas",
+    "maranhão", "piauí", "paraíba", "alagoas", "sergipe",
+    "rio grande do norte", "tocantins", "rondônia", "roraima",
+    "amapá", "acre",
+]
+
+def _location_allowed(location: str) -> bool:
+    """Retorna True se a localização do lead está nas regiões permitidas."""
+    if not location:
+        return True  # sem localização → aceita (não temos como saber)
+    loc_lower = location.lower()
+    # Se menciona região bloqueada → rejeita
+    for blocked in _BLOCKED_REGIONS:
+        if blocked in loc_lower:
+            return False
+    # Se tem localização e menciona região permitida → aceita
+    for allowed in _ALLOWED_REGIONS:
+        if allowed in loc_lower:
+            return True
+    # Localização presente mas não reconhecida → aceita (pode ser abreviação)
+    return True
+
 
 # ── Parser de resultados ────────────────────────────────────────────────────────
 
@@ -107,6 +152,11 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
         kw_match = BR_PATTERN.search(keyword)
         if kw_match:
             location = kw_match.group(0).strip()
+
+    # ── Filtro de região (Sudeste + Centro-Oeste + Sul apenas) ───────────────
+    if not _location_allowed(location):
+        log.debug(f"[scraper] Descartado (região fora do escopo): {name} - {location}")
+        return None
 
     return Lead(
         name=name,
