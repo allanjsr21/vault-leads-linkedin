@@ -26,6 +26,7 @@ st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
+    /* ── Animations ── */
     @keyframes shimmer {
         0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
@@ -34,24 +35,55 @@ st.markdown("""
         0%, 100% { opacity: 0.4; }
         50% { opacity: 0.8; }
     }
-    @keyframes fade-in {
-        from { opacity: 0; transform: translateY(8px); }
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(12px); }
         to { opacity: 1; transform: translateY(0); }
     }
-
-    /* ── Reset & base ── */
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
-
-    /* ── Background with subtle mesh gradient ── */
-    [data-testid="stAppViewContainer"] {
-        background: #05060f;
-        background-image:
-            radial-gradient(ellipse at 15% 10%, rgba(212,175,55,0.03) 0%, transparent 50%),
-            radial-gradient(ellipse at 85% 30%, rgba(99,102,241,0.03) 0%, transparent 50%),
-            radial-gradient(ellipse at 50% 80%, rgba(14,165,233,0.02) 0%, transparent 50%);
+    @keyframes border-breathe {
+        0%, 100% { border-color: rgba(212,175,55,0.04); }
+        50% { border-color: rgba(212,175,55,0.10); }
+    }
+    @keyframes glow-pulse {
+        0%, 100% { box-shadow: 0 0 20px rgba(212,175,55,0.0); }
+        50% { box-shadow: 0 0 40px rgba(212,175,55,0.04); }
     }
 
-    /* Top accent line — shimmer animation */
+    /* ── Global resets ── */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+    ::selection {
+        background: rgba(212,175,55,0.3);
+        color: #fff;
+    }
+
+    /* ── Background — deep mesh gradient ── */
+    [data-testid="stAppViewContainer"] {
+        background: #0a0a0f;
+        background-image:
+            radial-gradient(ellipse at 15% 10%, rgba(212,175,55,0.04) 0%, transparent 50%),
+            radial-gradient(ellipse at 85% 30%, rgba(99,102,241,0.04) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 80%, rgba(14,165,233,0.03) 0%, transparent 50%),
+            radial-gradient(ellipse at 70% 60%, rgba(212,175,55,0.02) 0%, transparent 40%);
+    }
+
+    /* Noise/grain overlay — premium texture */
+    [data-testid="stAppViewContainer"]::after {
+        content: '';
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        pointer-events: none;
+        z-index: 1;
+        mix-blend-mode: overlay;
+    }
+
+    /* Top accent line — shimmer */
     [data-testid="stAppViewContainer"]::before {
         content: '';
         position: fixed;
@@ -63,33 +95,33 @@ st.markdown("""
         z-index: 9999;
     }
 
-    /* ── Sidebar — glassmorphism ── */
+    /* ── Sidebar — glass panel ── */
     [data-testid="stSidebar"] {
-        background: rgba(8,9,18,0.85) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(212,175,55,0.06) !important;
+        background: rgba(8,9,18,0.90) !important;
+        backdrop-filter: blur(24px) saturate(120%) !important;
+        -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
+        border-right: 1px solid rgba(255,255,255,0.04) !important;
     }
     [data-testid="stSidebar"]::before {
         content: '';
         position: absolute;
-        top: 0; left: 0;
+        top: 0; right: 0;
         width: 1px; height: 100%;
-        background: linear-gradient(180deg, rgba(212,175,55,0.5) 0%, rgba(212,175,55,0.1) 40%, transparent 70%);
+        background: linear-gradient(180deg, rgba(212,175,55,0.4) 0%, rgba(212,175,55,0.08) 30%, transparent 60%);
     }
 
     /* ── Radio buttons ── */
     [data-testid="stRadio"] [role="radio"] {
-        border-color: rgba(255,255,255,0.08) !important;
+        border-color: rgba(255,255,255,0.06) !important;
         transition: all 0.2s ease !important;
     }
     [data-testid="stRadio"] [role="radio"][aria-checked="true"] {
         border-color: #d4af37 !important;
         background: linear-gradient(135deg, #d4af37, #b8960c) !important;
-        box-shadow: 0 0 12px rgba(212,175,55,0.3) !important;
+        box-shadow: 0 0 16px rgba(212,175,55,0.3) !important;
     }
     [data-testid="stRadio"] label {
-        color: rgba(255,255,255,0.35) !important;
+        color: rgba(255,255,255,0.30) !important;
         font-size: 0.85rem !important;
         font-weight: 500 !important;
         transition: color 0.2s ease !important;
@@ -100,110 +132,126 @@ st.markdown("""
 
     h1, h2, h3, h4 { color: #d4af37 !important; }
 
-    /* ── Buttons — glass effect ── */
+    /* ── Buttons — gold glass ── */
     .stButton > button {
-        background: linear-gradient(135deg, rgba(212,175,55,0.9) 0%, rgba(184,150,12,0.9) 100%) !important;
-        color: #000 !important;
+        background: linear-gradient(135deg, rgba(212,175,55,0.9) 0%, rgba(184,150,12,0.85) 100%) !important;
+        color: #0a0a0f !important;
         font-weight: 600 !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(212,175,55,0.3) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(212,175,55,0.2) !important;
         padding: 0.55rem 1.3rem !important;
         letter-spacing: 0.3px !important;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 2px 12px rgba(212,175,55,0.15), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+        box-shadow: 0 2px 12px rgba(212,175,55,0.12), inset 0 1px 0 rgba(255,255,255,0.1) !important;
         font-size: 0.82rem !important;
-        backdrop-filter: blur(4px) !important;
     }
     .stButton > button:hover {
         background: linear-gradient(135deg, rgba(245,200,60,0.95) 0%, rgba(212,175,55,0.95) 100%) !important;
-        box-shadow: 0 4px 20px rgba(212,175,55,0.35), inset 0 1px 0 rgba(255,255,255,0.15) !important;
-        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 24px rgba(212,175,55,0.3), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+        transform: translateY(-1px) !important;
     }
     .stButton > button:active {
-        transform: translateY(0) !important;
-        box-shadow: 0 1px 6px rgba(212,175,55,0.2) !important;
+        transform: scale(0.97) !important;
+        transition: transform 0.1s ease !important;
+        box-shadow: 0 1px 6px rgba(212,175,55,0.15) !important;
     }
 
-    /* ── Metric cards — glassmorphism ── */
+    /* ── Metric cards — glass with inner light ── */
     .metric-card {
-        background: rgba(12,13,25,0.6);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(255,255,255,0.02);
+        backdrop-filter: blur(16px) saturate(120%);
+        -webkit-backdrop-filter: blur(16px) saturate(120%);
         border: 1px solid rgba(255,255,255,0.04);
-        border-radius: 20px;
-        padding: 1.6rem 1rem 1.4rem;
+        border-radius: 16px;
+        padding: 1.8rem 1rem 1.5rem;
         text-align: center;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
-        animation: fade-in 0.5s ease-out both;
+        animation: fade-in-up 0.5s ease-out both, border-breathe 4s ease-in-out infinite;
+        box-shadow:
+            0 0 0 1px rgba(255,255,255,0.02),
+            inset 0 1px 0 rgba(255,255,255,0.03),
+            0 4px 24px rgba(0,0,0,0.4);
     }
+    .metric-card:nth-child(1) { animation-delay: 0.05s; }
+    .metric-card:nth-child(2) { animation-delay: 0.10s; }
+    .metric-card:nth-child(3) { animation-delay: 0.15s; }
+    .metric-card:nth-child(4) { animation-delay: 0.20s; }
+    .metric-card:nth-child(5) { animation-delay: 0.25s; }
+    .metric-card:nth-child(6) { animation-delay: 0.30s; }
+
     .metric-card::before {
         content: '';
         position: absolute;
-        top: 0; left: 20%; right: 20%;
+        top: 0; left: 15%; right: 15%;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent);
+        background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent);
     }
     .metric-card::after {
         content: '';
         position: absolute;
         top: -50%; left: -50%;
         width: 200%; height: 200%;
-        background: radial-gradient(circle at center, rgba(212,175,55,0.02) 0%, transparent 70%);
+        background: radial-gradient(circle at center, rgba(212,175,55,0.015) 0%, transparent 70%);
         opacity: 0;
-        transition: opacity 0.3s ease;
+        transition: opacity 0.4s ease;
     }
     .metric-card:hover {
-        border-color: rgba(212,175,55,0.15);
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 30px rgba(212,175,55,0.04);
+        border-color: rgba(212,175,55,0.12);
+        transform: translateY(-2px);
+        box-shadow:
+            0 8px 32px rgba(0,0,0,0.5),
+            0 0 0 1px rgba(212,175,55,0.06),
+            0 0 48px rgba(212,175,55,0.03);
     }
     .metric-card:hover::after { opacity: 1; }
 
-    .metric-card-hot { border-color: rgba(251,146,60,0.12) !important; }
+    .metric-card-hot { border-color: rgba(251,146,60,0.10) !important; }
     .metric-card-hot::before {
-        background: linear-gradient(90deg, transparent, rgba(251,146,60,0.35), transparent) !important;
+        background: linear-gradient(90deg, transparent, rgba(251,146,60,0.3), transparent) !important;
     }
     .metric-card-hot:hover {
-        border-color: rgba(251,146,60,0.25) !important;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 40px rgba(251,146,60,0.06) !important;
+        border-color: rgba(251,146,60,0.20) !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 40px rgba(251,146,60,0.05) !important;
     }
+
     .metric-icon {
-        font-size: 1rem;
-        opacity: 0.5;
-        margin-bottom: 0.8rem;
+        font-size: 0.9rem;
+        opacity: 0.4;
+        margin-bottom: 0.9rem;
         display: block;
     }
     .metric-number {
         font-family: 'Space Grotesk', sans-serif;
         font-size: 2.8rem;
         font-weight: 700;
-        letter-spacing: -2.5px;
+        letter-spacing: -0.03em;
         line-height: 1;
         display: block;
-        text-shadow: 0 0 40px currentColor;
+        text-shadow: 0 0 60px currentColor, 0 0 120px rgba(212,175,55,0.08);
     }
     .metric-label {
-        font-size: 0.62rem;
-        color: rgba(255,255,255,0.2);
-        margin-top: 10px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.6rem;
+        color: rgba(255,255,255,0.20);
+        margin-top: 12px;
         text-transform: uppercase;
-        letter-spacing: 1.8px;
+        letter-spacing: 0.15em;
         font-weight: 600;
         display: block;
     }
 
-    /* ── Log box — terminal style ── */
+    /* ── Log box — terminal ── */
     .log-box {
-        background: rgba(8,9,18,0.7);
-        backdrop-filter: blur(10px);
+        background: rgba(8,9,18,0.8);
+        backdrop-filter: blur(12px) saturate(110%);
         border: 1px solid rgba(255,255,255,0.04);
-        border-radius: 16px;
+        border-radius: 12px;
         padding: 1.2rem 1.4rem;
         font-family: 'JetBrains Mono', 'Fira Code', monospace;
         font-size: 0.72rem;
-        color: rgba(120,130,180,0.7);
+        color: rgba(120,130,180,0.6);
         height: 180px;
         overflow-y: auto;
         line-height: 1.8;
@@ -213,7 +261,7 @@ st.markdown("""
         content: '>';
         position: absolute;
         top: 1.2rem; left: 1.4rem;
-        color: rgba(212,175,55,0.3);
+        color: rgba(212,175,55,0.25);
         font-size: 0.7rem;
         animation: pulse-glow 2s ease-in-out infinite;
     }
@@ -221,54 +269,58 @@ st.markdown("""
     .log-box::-webkit-scrollbar { width: 4px; }
     .log-box::-webkit-scrollbar-track { background: transparent; }
     .log-box::-webkit-scrollbar-thumb {
-        background: rgba(212,175,55,0.15);
+        background: rgba(255,255,255,0.06);
         border-radius: 4px;
+    }
+    .log-box::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.12);
     }
 
     /* ── Sidebar components ── */
     .sidebar-logo {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 0.3rem 0 0.6rem;
+        gap: 14px;
+        padding: 0.4rem 0 0.8rem;
     }
     .sidebar-logo-icon {
-        width: 40px; height: 40px;
+        width: 42px; height: 42px;
         background: linear-gradient(135deg, #d4af37, #9a7b1e);
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.1rem;
-        color: #000;
-        box-shadow: 0 4px 16px rgba(212,175,55,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+        color: #0a0a0f;
+        box-shadow: 0 4px 20px rgba(212,175,55,0.25), inset 0 1px 0 rgba(255,255,255,0.15);
     }
     .sidebar-logo-text {
         font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: #d4af37;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.03em;
     }
     .sidebar-logo-sub {
-        font-size: 0.65rem;
-        color: rgba(255,255,255,0.18);
-        margin-top: 2px;
-        letter-spacing: 0.5px;
+        font-size: 0.6rem;
+        color: rgba(255,255,255,0.15);
+        margin-top: 3px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
     }
 
     .section-header {
         display: flex;
         align-items: center;
         gap: 8px;
-        color: rgba(212,175,55,0.5);
-        font-size: 0.65rem;
+        color: rgba(255,255,255,0.25);
+        font-size: 0.6rem;
         font-weight: 700;
         margin: 1.2rem 0 0.6rem;
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 0.15em;
     }
-    .section-header i { font-size: 0.6rem; }
+    .section-header i { font-size: 0.55rem; color: rgba(212,175,55,0.4); }
 
     /* ── Status badges ── */
     .status-badge {
@@ -276,16 +328,16 @@ st.markdown("""
         align-items: center;
         gap: 5px;
         padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.7rem;
+        border-radius: 100px;
+        font-size: 0.68rem;
         font-weight: 500;
-        backdrop-filter: blur(4px);
+        backdrop-filter: blur(8px);
     }
-    .badge-pending  { background: rgba(212,175,55,0.08); color: #d4af37; border: 1px solid rgba(212,175,55,0.12); }
-    .badge-approved { background: rgba(52,211,153,0.08); color: #34d399; border: 1px solid rgba(52,211,153,0.12); }
-    .badge-sent     { background: rgba(96,165,250,0.08); color: #60a5fa; border: 1px solid rgba(96,165,250,0.12); }
-    .badge-failed   { background: rgba(248,113,113,0.08); color: #f87171; border: 1px solid rgba(248,113,113,0.12); }
-    .badge-skipped  { background: rgba(107,114,128,0.08); color: #6b7280; border: 1px solid rgba(107,114,128,0.12); }
+    .badge-pending  { background: rgba(212,175,55,0.06); color: #d4af37; border: 1px solid rgba(212,175,55,0.10); }
+    .badge-approved { background: rgba(52,211,153,0.06); color: #34d399; border: 1px solid rgba(52,211,153,0.10); }
+    .badge-sent     { background: rgba(96,165,250,0.06); color: #60a5fa; border: 1px solid rgba(96,165,250,0.10); }
+    .badge-failed   { background: rgba(248,113,113,0.06); color: #f87171; border: 1px solid rgba(248,113,113,0.10); }
+    .badge-skipped  { background: rgba(107,114,128,0.06); color: #6b7280; border: 1px solid rgba(107,114,128,0.08); }
 
     /* ── Score badges ── */
     .score-pill {
@@ -293,43 +345,42 @@ st.markdown("""
         align-items: center;
         gap: 5px;
         padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        backdrop-filter: blur(4px);
+        border-radius: 100px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        backdrop-filter: blur(8px);
     }
-    .score-hot  {
-        background: rgba(251,146,60,0.1);
+    .score-hot {
+        background: rgba(251,146,60,0.08);
         color: #fb923c;
-        border: 1px solid rgba(251,146,60,0.2);
-        box-shadow: 0 0 12px rgba(251,146,60,0.08);
+        border: 1px solid rgba(251,146,60,0.15);
+        text-shadow: 0 0 12px rgba(251,146,60,0.3);
     }
     .score-warm {
-        background: rgba(250,204,21,0.08);
+        background: rgba(250,204,21,0.06);
         color: #facc15;
-        border: 1px solid rgba(250,204,21,0.15);
+        border: 1px solid rgba(250,204,21,0.12);
     }
     .score-cold {
-        background: rgba(107,114,128,0.06);
-        color: rgba(107,114,128,0.7);
-        border: 1px solid rgba(107,114,128,0.1);
+        background: rgba(107,114,128,0.05);
+        color: rgba(107,114,128,0.6);
+        border: 1px solid rgba(107,114,128,0.08);
     }
 
-    /* Score legend */
     .score-legend {
         display: flex;
-        gap: 14px;
+        gap: 16px;
         align-items: center;
-        font-size: 0.7rem;
-        color: rgba(255,255,255,0.2);
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.18);
         margin-bottom: 0.8rem;
     }
 
-    /* ── Table ── */
+    /* ── Table — Linear/Vercel style ── */
     [data-testid="stDataFrame"] {
         border: 1px solid rgba(255,255,255,0.04) !important;
-        border-radius: 16px !important;
+        border-radius: 12px !important;
         overflow: hidden !important;
     }
 
@@ -341,23 +392,27 @@ st.markdown("""
 
     /* ── Inputs — glass ── */
     .stTextInput > div > div > input {
-        background: rgba(12,13,25,0.5) !important;
-        backdrop-filter: blur(8px) !important;
+        background: rgba(255,255,255,0.02) !important;
+        backdrop-filter: blur(12px) !important;
         border: 1px solid rgba(255,255,255,0.06) !important;
-        border-radius: 12px !important;
-        color: rgba(255,255,255,0.8) !important;
+        border-radius: 10px !important;
+        color: rgba(255,255,255,0.85) !important;
         transition: all 0.2s ease !important;
     }
     .stTextInput > div > div > input:focus {
-        border-color: rgba(212,175,55,0.3) !important;
-        box-shadow: 0 0 16px rgba(212,175,55,0.08) !important;
+        border-color: rgba(212,175,55,0.25) !important;
+        box-shadow: 0 0 0 3px rgba(212,175,55,0.06), 0 0 20px rgba(212,175,55,0.04) !important;
+        outline: none !important;
+    }
+    .stTextInput > div > div > input::placeholder {
+        color: rgba(255,255,255,0.15) !important;
     }
     [data-baseweb="select"] > div {
-        background: rgba(12,13,25,0.5) !important;
-        backdrop-filter: blur(8px) !important;
+        background: rgba(255,255,255,0.02) !important;
+        backdrop-filter: blur(12px) !important;
         border: 1px solid rgba(255,255,255,0.06) !important;
-        border-radius: 12px !important;
-        color: rgba(255,255,255,0.8) !important;
+        border-radius: 10px !important;
+        color: rgba(255,255,255,0.85) !important;
     }
     .stRadio > div { gap: 6px; }
 
@@ -365,10 +420,72 @@ st.markdown("""
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-        background: rgba(212,175,55,0.12);
-        border-radius: 6px;
+        background: rgba(255,255,255,0.06);
+        border-radius: 3px;
     }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.25); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+
+    /* ── Section titles ── */
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .section-title-bar {
+        width: 3px; height: 18px;
+        border-radius: 2px;
+    }
+    .section-title-text {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+
+    /* ── Info panel in sidebar ── */
+    .info-panel {
+        margin-top: 1.5rem;
+        padding: 0.9rem 1rem;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 10px;
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.25);
+        line-height: 1.8;
+    }
+    .info-panel b { color: rgba(255,255,255,0.40); }
+    .info-panel i { color: rgba(212,175,55,0.3); margin-right: 4px; }
+
+    /* ── Divider gradient ── */
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+        margin: 1.5rem 0;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: rgba(255,255,255,0.15);
+    }
+    .empty-state i {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+    .empty-state b { color: rgba(212,175,55,0.5); }
+
+    /* ── Lead count footer ── */
+    .lead-count {
+        font-size: 0.72rem;
+        color: rgba(255,255,255,0.15);
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -380,7 +497,7 @@ with st.sidebar:
         <div class="sidebar-logo-icon"><i class="fa-solid fa-bolt"></i></div>
         <div>
             <div class="sidebar-logo-text">Vault Capital</div>
-            <div class="sidebar-logo-sub">Agente de Leads LinkedIn</div>
+            <div class="sidebar-logo-sub">Lead Generation</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -420,12 +537,12 @@ with st.sidebar:
     btn_clear       = st.button("Limpar tabela",       icon=":material/delete:",        use_container_width=True)
 
     st.markdown("""
-    <div style="margin-top:1.5rem; padding:0.8rem; background:rgba(240,192,64,0.04);
-                border:1px solid rgba(240,192,64,0.08); border-radius:10px;
-                font-size:0.7rem; color:#33334a; line-height:1.7;">
-        <i class="fa-solid fa-circle-info" style="color:#f0c040; opacity:0.4; margin-right:5px;"></i>
-        <b>Score IA</b>: Claude analisa bio e dá nota inteligente<br>
+    <div class="info-panel">
+        <i class="fa-solid fa-circle-info"></i>
+        <b>Score IA</b>: Claude analisa bio e dá nota<br>
+        <i class="fa-solid fa-circle-info"></i>
         <b>Enriquecer</b>: busca email via Hunter.io<br>
+        <i class="fa-solid fa-circle-info"></i>
         <b>Coletar</b>: keywords + posts + eventos
     </div>
     """, unsafe_allow_html=True)
@@ -537,20 +654,21 @@ profile_label = "Autocustódia" if profile_choice == "1" else "Consultoria"
 profile_icon  = "fa-shield-halved" if profile_choice == "1" else "fa-briefcase"
 
 st.markdown(f"""
-<div style="display:flex; align-items:center; gap:14px; margin-bottom:0.15rem;">
-    <div style="font-family:'Space Grotesk','Inter',sans-serif; font-size:1.9rem; font-weight:700;
-                color:#f0c040; letter-spacing:-1px; line-height:1;">
+<div style="display:flex; align-items:center; gap:16px; margin-bottom:0.2rem;">
+    <div style="font-family:'Space Grotesk',sans-serif; font-size:1.8rem; font-weight:700;
+                color:rgba(255,255,255,0.90); letter-spacing:-0.03em; line-height:1;">
         Vault Capital
     </div>
-    <div style="background:rgba(240,192,64,0.07); border:1px solid rgba(240,192,64,0.15);
-                border-radius:20px; padding:4px 13px; font-size:0.72rem;
-                color:#c8a830; font-weight:600; letter-spacing:0.3px;">
-        <i class="fa-solid {profile_icon}" style="margin-right:5px; opacity:0.8;"></i>{profile_label}
+    <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.10);
+                border-radius:100px; padding:4px 14px; font-size:0.68rem;
+                color:#d4af37; font-weight:600; letter-spacing:0.05em;">
+        <i class="fa-solid {profile_icon}" style="margin-right:5px; opacity:0.7;"></i>{profile_label}
     </div>
 </div>
-<div style="font-size:0.78rem; color:#2e2e45; margin-bottom:1.4rem; letter-spacing:0.3px; display:flex; align-items:center; gap:6px;">
-    <i class="fa-brands fa-linkedin" style="color:#0a66c2;"></i>
-    <span>Agente de Leads LinkedIn</span>
+<div style="font-size:0.72rem; color:rgba(255,255,255,0.20); margin-bottom:1.8rem;
+            letter-spacing:0.05em; display:flex; align-items:center; gap:8px;">
+    <i class="fa-brands fa-linkedin" style="color:rgba(99,102,241,0.5); font-size:0.8rem;"></i>
+    <span>Lead Generation Agent</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -785,14 +903,9 @@ if btn_enrich:
 
 # ── Tabela de leads ────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.9rem;">
-    <div style="display:flex; align-items:center; gap:8px;">
-        <div style="width:3px; height:18px; background:linear-gradient(180deg,#f0c040,#c89a00);
-                    border-radius:2px;"></div>
-        <span style="font-size:0.95rem; font-weight:700; color:#e8d060; letter-spacing:0.2px;">
-            Leads Coletados
-        </span>
-    </div>
+<div class="section-title" style="margin-bottom:1rem;">
+    <div class="section-title-bar" style="background:linear-gradient(180deg,#d4af37,rgba(212,175,55,0.2));"></div>
+    <span class="section-title-text" style="color:rgba(255,255,255,0.70);">Leads Coletados</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -837,10 +950,10 @@ if not df_table.empty:
 
 if df_table.empty:
     st.markdown("""
-    <div style="text-align:center; padding:3rem 0; color:#44445a;">
-        <i class="fa-solid fa-inbox" style="font-size:2.5rem; display:block; margin-bottom:0.8rem;"></i>
+    <div class="empty-state">
+        <i class="fa-solid fa-inbox"></i>
         Nenhum lead nesta sessão.<br>
-        <span style="font-size:0.85rem;">Clique em <b>Coletar Leads</b> ou <b>Carregar do Sheets</b>.</span>
+        <span style="font-size:0.8rem;">Clique em <b>Coletar Leads</b> ou <b>Carregar do Sheets</b>.</span>
     </div>
     """, unsafe_allow_html=True)
 else:
@@ -891,19 +1004,19 @@ else:
         },
     )
     st.markdown(f"""
-    <div style="font-size:0.75rem; color:#44445a; margin-top:6px; display:flex; align-items:center; gap:6px;">
-        <i class="fa-solid fa-circle-info"></i>
-        {len(df_table)} leads exibidos &nbsp;·&nbsp; Leads salvos permanentemente no Google Sheets
+    <div class="lead-count">
+        <i class="fa-solid fa-circle" style="font-size:4px; color:rgba(212,175,55,0.3);"></i>
+        {len(df_table)} leads exibidos &nbsp;·&nbsp; Google Sheets sync
     </div>
     """, unsafe_allow_html=True)
 
 # ── Log de atividade ───────────────────────────────────────────────────────────
 st.markdown("""
-<div style="display:flex; align-items:center; gap:8px; margin: 1.4rem 0 0.7rem;">
-    <div style="width:3px; height:18px; background:linear-gradient(180deg,#4a5080,#2a2a40);
-                border-radius:2px;"></div>
-    <span style="font-size:0.95rem; font-weight:700; color:#5a6080; letter-spacing:0.2px;">
-        <i class="fa-solid fa-terminal" style="margin-right:6px; font-size:0.8rem;"></i>Log de Atividade
+<div class="divider"></div>
+<div class="section-title" style="margin-bottom:0.7rem;">
+    <div class="section-title-bar" style="background:linear-gradient(180deg,rgba(99,102,241,0.5),rgba(99,102,241,0.1));"></div>
+    <span class="section-title-text" style="color:rgba(255,255,255,0.35);">
+        <i class="fa-solid fa-terminal" style="margin-right:8px; font-size:0.75rem; opacity:0.5;"></i>Log
     </span>
 </div>
 """, unsafe_allow_html=True)
