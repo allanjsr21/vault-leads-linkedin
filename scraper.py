@@ -55,10 +55,26 @@ _BLOCKED_REGIONS = [
     "amapá", "acre",
 ]
 
-def _location_allowed(location: str) -> bool:
+def _location_allowed(location: str, full_text: str = "") -> bool:
     """Retorna True se a localização do lead está nas regiões permitidas."""
     if not location:
-        return True  # sem localização → aceita (não temos como saber)
+        # Sem localização detectada → checar se há ALGUM sinal de Brasil no texto
+        if full_text:
+            ft_lower = full_text.lower()
+            brazil_signals = [
+                "brazil", "brasil", "são paulo", "rio de janeiro",
+                "belo horizonte", "curitiba", "brasília", "porto alegre",
+                "florianópolis", "campinas", "goiânia", "vitória",
+                ", sp", ", rj", ", mg", ", pr", ", sc", ", rs", ", df",
+            ]
+            for signal in brazil_signals:
+                if signal in ft_lower:
+                    return True
+            # Nenhum sinal de Brasil no texto → rejeita
+            log.debug(f"[scraper] Sem localização e sem sinal de Brasil no texto (rejeitado)")
+            return False
+        # Sem localização e sem texto → aceita (não temos como saber)
+        return True
     loc_lower = location.lower()
     # Se menciona região bloqueada → rejeita
     for blocked in _BLOCKED_REGIONS:
@@ -155,7 +171,8 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
             location = kw_match.group(0).strip()
 
     # ── Filtro de região (Sudeste + Centro-Oeste + Sul apenas) ───────────────
-    if not _location_allowed(location):
+    full_text = f"{title} {description}"
+    if not _location_allowed(location, full_text):
         log.debug(f"[scraper] Descartado (região fora do escopo): {name} - {location}")
         return None
 
