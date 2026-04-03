@@ -16,43 +16,77 @@ def _get_secret(key: str, fallback: str = "") -> str:
 # ── Brave Search API ──────────────────────────────────────────────────────────
 BRAVE_SEARCH_API_KEY = _get_secret("BRAVE_SEARCH_API_KEY", "")
 
+# ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
+# Setup: https://programmablesearchengine.google.com → criar engine → search entire web
+# API key: https://console.cloud.google.com → Custom Search API → Create Credentials
+GOOGLE_CSE_API_KEY = _get_secret("GOOGLE_CSE_API_KEY", "")
+GOOGLE_CSE_ID      = _get_secret("GOOGLE_CSE_ID", "")
+
 # ── Chrome ────────────────────────────────────────────────────────────────────
 CHROME_PROFILE_PATH = _os.path.expandvars(
     r"%LOCALAPPDATA%\Google\Chrome\User Data"
 )
 
+# ── Geração programática de keywords ─────────────────────────────────────────
+# Combina tópicos × cidades para cobertura máxima
+
+CITIES_PRIORITY = [
+    '"São Paulo"', '"Rio de Janeiro"', '"Belo Horizonte"',
+    'Curitiba', 'Campinas', '"Espírito Santo"',
+    '"Porto Alegre"', '"Florianópolis"', '"Brasília"',
+]
+
+def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[str] = []) -> list[str]:
+    """Gera keywords combinando tópicos × cidades + genéricas."""
+    kws = []
+    for topic in topics:
+        for city in cities:
+            kws.append(f'{topic} {city}')
+    kws.extend(generic_kws)
+    return kws
+
+
 # ── Perfis de Público ──────────────────────────────────────────────────────────
 # Cada perfil tem: keywords, mensagem e nome da planilha
+
+_AUTOCUSTODIA_TOPICS = [
+    "bitcoin autocustodia",
+    "bitcoin hardware wallet",
+    "hodler bitcoin",
+    "bitcoin cold storage",
+    "ledger trezor bitcoin",
+    "bitcoin self custody",
+]
+
+_AUTOCUSTODIA_GENERIC = [
+    "bitcoin soberania financeira pessoal Brasil",
+    "guardando bitcoin cold wallet Brasil",
+    "trezor ledger bitcoin brasileiro",
+    "meu bitcoin minha chave Brasil",
+    "bitcoin nao sua chave nao sua moeda",
+]
+
+_CONSULTORIA_TOPICS = [
+    "empresario investindo bitcoin",
+    "empreendedor reserva bitcoin",
+    "socio fundador bitcoin",
+    "investidor anjo bitcoin",
+    "empresario cripto",
+]
+
+_CONSULTORIA_GENERIC = [
+    "CFO patrimonio digital Brasil",
+    "diretor executivo cripto Brasil",
+    "empresario bitcoin Brasil",
+    "fundador startup cripto Brasil",
+    "gestao patrimonio criptoativos Brasil",
+]
 
 AUDIENCE_PROFILES = {
     "1": {
         "name": "Autocustodia",
         "description": "Evento de autocustodia — pessoas interessadas em guardar o proprio Bitcoin",
-        "keywords": [
-            # São Paulo
-            "bitcoin autocustodia \"São Paulo\"",
-            "bitcoin hardware wallet \"São Paulo\"",
-            "hodler bitcoin \"São Paulo\"",
-            "ledger trezor bitcoin \"São Paulo\"",
-            "bitcoin cold storage \"São Paulo\"",
-            # Rio de Janeiro
-            "bitcoin autocustodia \"Rio de Janeiro\"",
-            "bitcoin hardware wallet \"Rio de Janeiro\"",
-            "hodler bitcoin \"Rio de Janeiro\"",
-            # Belo Horizonte / Minas
-            "bitcoin autocustodia \"Belo Horizonte\"",
-            "bitcoin self custody \"Minas Gerais\"",
-            # Curitiba / Sul
-            "bitcoin hardware wallet Curitiba",
-            "hodler bitcoin Curitiba",
-            # Campinas / interior SP
-            "bitcoin autocustodia Campinas",
-            "bitcoin cold wallet \"interior de São Paulo\"",
-            # Brasil genérico
-            "bitcoin soberania financeira pessoal Brasil",
-            "guardando bitcoin cold wallet Brasil",
-            "trezor ledger bitcoin brasileiro",
-        ],
+        "keywords": _generate_keywords(_AUTOCUSTODIA_TOPICS, CITIES_PRIORITY, _AUTOCUSTODIA_GENERIC),
         "location_filter": "(\"São Paulo\" OR \"Rio de Janeiro\" OR \"Belo Horizonte\" OR \"Espírito Santo\" OR \"Campinas\" OR \"Curitiba\") Brazil",
         "sheet_name": "Vault — Leads Autocustodia",
         "leads_csv": "leads_autocustodia.csv",
@@ -71,26 +105,7 @@ Vault Capital""",
     "2": {
         "name": "Consultoria",
         "description": "Consultoria — empresarios e executivos que querem orientacao profissional em cripto",
-        "keywords": [
-            # São Paulo
-            "empresario investindo bitcoin \"São Paulo\"",
-            "empreendedor reserva bitcoin \"São Paulo\"",
-            "socio fundador bitcoin \"São Paulo\"",
-            "CEO alocacao cripto \"São Paulo\"",
-            "investidor anjo bitcoin \"São Paulo\"",
-            # Rio de Janeiro
-            "empresario bitcoin \"Rio de Janeiro\"",
-            "empreendedor cripto \"Rio de Janeiro\"",
-            # Belo Horizonte
-            "empresario bitcoin \"Belo Horizonte\"",
-            # Curitiba
-            "empreendedor bitcoin Curitiba",
-            # Brasil genérico
-            "CFO patrimonio digital Brasil",
-            "diretor executivo cripto Brasil",
-            "empresario bitcoin Brasil",
-            "fundador startup cripto Brasil",
-        ],
+        "keywords": _generate_keywords(_CONSULTORIA_TOPICS, CITIES_PRIORITY, _CONSULTORIA_GENERIC),
         "location_filter": "Brazil",
         "sheet_name": "Vault — Leads Consultoria",
         "leads_csv": "leads_consultoria.csv",
@@ -128,7 +143,7 @@ TITLE_EXCLUSIONS = [
 
 # ── Limites de operação ────────────────────────────────────────────────────────
 MAX_LEADS_PER_RUN = 100
-MAX_PAGES_PER_KEYWORD = 5  # paginas Brave por keyword (20 resultados cada)
+MAX_PAGES_PER_KEYWORD = 3  # paginas por keyword (para economizar cota)
 MAX_DMS_PER_DAY = 20
 DELAY_BETWEEN_DMS = (30, 90)
 

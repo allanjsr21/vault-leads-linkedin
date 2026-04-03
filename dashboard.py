@@ -492,13 +492,23 @@ if btn_collect:
 
             from scraper import search_by_keywords, search_by_post_engagement
             from leads_manager import add_leads, load_leads
+
+            # Fontes ativas
+            sources_info = []
+            if _cfg.BRAVE_SEARCH_API_KEY: sources_info.append("Brave Search")
+            if getattr(_cfg, "GOOGLE_CSE_API_KEY", "") and getattr(_cfg, "GOOGLE_CSE_ID", ""):
+                sources_info.append("Google Custom Search")
+            add_log(f"Fontes ativas: {', '.join(sources_info) or 'Nenhuma!'}")
+
             add_log("Buscando por palavras-chave...")
             keyword_leads = search_by_keywords()
-            add_log(f"{len(keyword_leads)} perfis encontrados via keywords")
+            brave_count  = sum(1 for l in keyword_leads if l.source == "brave")
+            google_count = sum(1 for l in keyword_leads if l.source == "google")
+            add_log(f"{len(keyword_leads)} perfis via keywords (Brave: {brave_count}, Google: {google_count})")
 
-            add_log("Buscando engajamento em posts...")
+            add_log("Buscando autores de conteúdo crypto...")
             engagement_leads = search_by_post_engagement()
-            add_log(f"{len(engagement_leads)} perfis via engajamento")
+            add_log(f"{len(engagement_leads)} autores de artigos/posts encontrados")
 
             all_leads = keyword_leads + engagement_leads
             added, dupes = add_leads(all_leads)
