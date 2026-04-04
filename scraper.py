@@ -96,6 +96,43 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
     return False
 
 
+# ── Filtro de idioma (português vs inglês) ────────────────────────────────────
+
+# Palavras muito comuns em português que raramente aparecem em inglês
+_PT_WORDS = {
+    " de ", " da ", " do ", " das ", " dos ", " na ", " no ", " nas ", " nos ",
+    " em ", " para ", " com ", " que ", " uma ", " um ", " pelo ", " pela ",
+    " entre ", " sobre ", " mais ", " sua ", " seu ", " aos ", " são ",
+    " está ", " como ", " mas ", " tem ", " por ", " foi ",
+    " especialista ", " experiência ", " gestão ", " negócios ",
+    " empresa ", " desenvolvimento ", " financeiro ", " investimento ",
+}
+
+# Palavras comuns em inglês que raramente aparecem em português
+_EN_WORDS = {
+    " the ", " and ", " with ", " for ", " that ", " this ", " from ",
+    " have ", " been ", " will ", " are ", " was ", " were ", " has ",
+    " can ", " our ", " their ", " about ", " which ", " into ",
+    " also ", " than ", " been ", " would ", " should ", " could ",
+    " experience ", " management ", " development ", " business ",
+    " passionate ", " building ", " helping ", " looking ", " working ",
+    " skilled ", " driven ", " focused ", " leading ", " based ",
+}
+
+
+def _text_is_portuguese(text: str) -> bool:
+    """Retorna True se o texto parece ser português (não inglês)."""
+    if not text or len(text) < 30:
+        return True  # texto muito curto → não dá pra saber, aceita
+    t = f" {text.lower()} "
+    pt_count = sum(1 for w in _PT_WORDS if w in t)
+    en_count = sum(1 for w in _EN_WORDS if w in t)
+    # Se tem mais palavras em inglês do que português → provavelmente inglês
+    if en_count >= 3 and en_count > pt_count:
+        return False
+    return True
+
+
 # ── Parser de resultados ────────────────────────────────────────────────────────
 
 # Padrão de localização brasileira (compilado uma vez)
@@ -186,6 +223,12 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
     # Usar APENAS description para sinais de Brasil (title tem nome/cargo = falsos positivos)
     if not _location_allowed(location, description):
         log.debug(f"[scraper] Descartado (região fora do escopo): {name} - {location}")
+        return None
+
+    # ── Filtro de idioma (rejeitar perfis em inglês) ─────────────────────────
+    full_text = f"{title} {description} {job_title} {company}"
+    if not _text_is_portuguese(full_text):
+        log.debug(f"[scraper] Descartado (texto em inglês): {name}")
         return None
 
     return Lead(
