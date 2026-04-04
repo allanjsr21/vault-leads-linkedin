@@ -454,20 +454,26 @@ st.markdown("""
     [data-testid="stDataFrame"] {
         border: 1px solid rgba(255,255,255,0.06) !important;
         border-radius: 16px !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         box-shadow: 0 8px 40px rgba(0,0,0,0.4) !important;
     }
-    /* Garante toolbar visível (fullscreen, download, search) */
+    /* Toolbar sempre visível (fullscreen, download, search) */
     [data-testid="stElementToolbar"] {
         opacity: 1 !important;
         visibility: visible !important;
+        display: flex !important;
+        z-index: 999 !important;
     }
     [data-testid="stElementToolbar"] button {
-        color: rgba(212,175,55,0.5) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        color: rgba(212,175,55,0.7) !important;
+        background: rgba(212,175,55,0.08) !important;
+        border-radius: 6px !important;
     }
     [data-testid="stElementToolbar"] button:hover {
         color: #d4af37 !important;
-        background: rgba(212,175,55,0.1) !important;
+        background: rgba(212,175,55,0.2) !important;
     }
 
     hr {
