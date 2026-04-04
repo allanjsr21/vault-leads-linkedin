@@ -40,8 +40,9 @@ _ALLOWED_REGIONS = [
     # Centro-Oeste
     "brasília", "goiânia", "campo grande", "cuiabá", "goiás",
     "mato grosso", "mato grosso do sul", "distrito federal",
-    # Genérico
-    "brazil", "brasil", "sp", "rj", "mg", "pr", "sc", "rs", "df", "go",
+    # NOTA: siglas de estado removidas daqui — causam falsos positivos
+    # (ex: "Praia" contém "pr", "Score" contém "sc").
+    # Siglas são checadas via BR_PATTERN com vírgula obrigatória (", SP").
 ]
 
 # Estados do Nordeste/Norte — se aparecerem, rejeita
@@ -62,17 +63,18 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
         # (cidade específica, não "Brazil/Brasil" genérico que vem da query de busca)
         if full_text:
             ft_lower = full_text.lower()
-            strong_brazil_signals = [
+            # Sinais fortes: cidades com 2+ palavras (sem ambiguidade)
+            # e estados por extenso
+            unambiguous_signals = [
                 "são paulo", "rio de janeiro", "belo horizonte",
-                "curitiba", "brasília", "porto alegre", "florianópolis",
-                "campinas", "goiânia", "vitória", "santos", "joinville",
-                "ribeirão preto", "uberlândia", "sorocaba", "londrina",
-                "maringá", "blumenau", "niterói", "juiz de fora",
-                ", sp", ", rj", ", mg", ", pr", ", sc", ", rs", ", df",
+                "porto alegre", "florianópolis", "ribeirão preto",
+                "juiz de fora", "campo grande", "caxias do sul",
                 "minas gerais", "paraná", "santa catarina",
                 "rio grande do sul", "distrito federal",
+                "espírito santo",
+                ", sp", ", rj", ", mg", ", pr", ", sc", ", rs", ", df",
             ]
-            for signal in strong_brazil_signals:
+            for signal in unambiguous_signals:
                 if signal in ft_lower:
                     return True
             # Nenhum sinal forte de Brasil → rejeita
@@ -154,19 +156,19 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
         break
 
     # ── Localização ───────────────────────────────────────────────────────────
+    # Extrair APENAS da description (não do título, que tem nome/cargo)
     location = ""
-    for text in (description, title):
-        if location:
+    for seg in re.split(r"[.\n·|]", description):
+        seg = seg.strip()
+        if not seg or len(seg) > 60:
+            continue
+        if seg.lower() in ("linkedin", ""):
+            continue
+        # Checar se parece localização (padrão: "Cidade, Estado" ou "Cidade, Country")
+        # e contém referência brasileira
+        if BR_PATTERN.search(seg) and ("," in seg or len(seg.split()) <= 4):
+            location = seg
             break
-        for seg in re.split(r"[.\n·|]", text):
-            seg = seg.strip()
-            if not seg or len(seg) > 120:
-                continue
-            if seg.lower() in ("linkedin", ""):
-                continue
-            if BR_PATTERN.search(seg):
-                location = seg
-                break
 
     # ── Filtro de cargos inalcançáveis ────────────────────────────────────────
     if job_title and TITLE_EXCLUSIONS:
@@ -181,8 +183,8 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
     # que o lead é dessa cidade. Isso gerava falsos positivos.
 
     # ── Filtro de região (Sudeste + Centro-Oeste + Sul apenas) ───────────────
-    full_text = f"{title} {description}"
-    if not _location_allowed(location, full_text):
+    # Usar APENAS description para sinais de Brasil (title tem nome/cargo = falsos positivos)
+    if not _location_allowed(location, description):
         log.debug(f"[scraper] Descartado (região fora do escopo): {name} - {location}")
         return None
 
@@ -512,9 +514,8 @@ def search_by_post_engagement(
                 status="pending",
             )
 
-            # Filtrar por localização (mesmo critério do search_by_keywords)
-            full_text = f"{title} {description}"
-            if not _location_allowed(location, full_text):
+            # Filtrar por localização (usar description apenas, não título)
+            if not _location_allowed(location, description):
                 log.debug(f"[posts] Descartado (região): {name} - {location}")
                 continue
 
