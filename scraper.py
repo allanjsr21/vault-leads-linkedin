@@ -225,12 +225,6 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
         log.debug(f"[scraper] Descartado (região fora do escopo): {name} - {location}")
         return None
 
-    # ── Filtro de idioma (rejeitar perfis em inglês) ─────────────────────────
-    full_text = f"{title} {description} {job_title} {company}"
-    if not _text_is_portuguese(full_text):
-        log.debug(f"[scraper] Descartado (texto em inglês): {name}")
-        return None
-
     return Lead(
         name=name,
         linkedin_url=url,

@@ -70,7 +70,7 @@ def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[s
 # Foco em sinais de interesse: entusiasta, investidor pessoal, hodler
 
 _AUTOCUSTODIA_TOPICS = [
-    # Autodeclarações de interesse (o que escrevem no perfil)
+    # Autodeclarações de interesse
     '"entusiasta bitcoin"',
     '"entusiasta de bitcoin"',
     '"entusiasta cripto"',
@@ -78,16 +78,22 @@ _AUTOCUSTODIA_TOPICS = [
     '"bitcoin enthusiast"',
     '"investidor bitcoin"',
     '"bitcoiner"',
+    '"crypto enthusiast"',
+    '"apaixonado cripto"',
     # Sinais de atividade / ownership
     '"hodler" bitcoin',
     '"investidor de criptomoedas"',
     '"acumulando bitcoin"',
     '"DCA bitcoin"',
+    '"comprei bitcoin"',
+    '"tenho bitcoin"',
     # Sinais de autocustódia
     '"cold wallet"',
-    '"hardware wallet" pessoal',
+    '"hardware wallet"',
     '"soberania financeira"',
-    # Profissão + interesse (qualquer profissional que mencione bitcoin)
+    '"not your keys"',
+    '"autocustódia"',
+    # Profissão + interesse
     '"médico" "bitcoin"',
     '"advogado" "bitcoin"',
     '"engenheiro" "bitcoin"',
@@ -96,6 +102,18 @@ _AUTOCUSTODIA_TOPICS = [
     '"arquiteto" "bitcoin"',
     '"professor" "bitcoin"',
     '"contador" "bitcoin"',
+    '"corretor" "bitcoin"',
+    '"consultor" "bitcoin"',
+    '"executivo" "bitcoin"',
+    '"CEO" "bitcoin"',
+    '"diretor" "bitcoin"',
+    '"psicólogo" "bitcoin"',
+    '"nutricionista" "bitcoin"',
+    '"fisioterapeuta" "bitcoin"',
+    '"veterinário" "bitcoin"',
+    '"farmacêutico" "bitcoin"',
+    '"bitcoin" "investimento pessoal"',
+    '"cripto" "patrimônio"',
 ]
 
 _AUTOCUSTODIA_GENERIC = [
