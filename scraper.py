@@ -13,6 +13,7 @@ import logging
 import random
 import re
 import time
+import unicodedata
 from typing import Optional
 
 import requests
@@ -26,23 +27,31 @@ log = logging.getLogger(__name__)
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 GOOGLE_CSE_URL   = "https://www.googleapis.com/customsearch/v1"
 
+def _strip_accents(s: str) -> str:
+    """Remove acentos para comparação case-insensitive sem acento."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    )
+
 # ── Filtro de regiões permitidas (Sudeste + Centro-Oeste + Sul) ──────────────
-# Se o lead tem localização detectada e NÃO está nessas regiões, é descartado
+# Armazenadas SEM acento para comparação robusta com texto que pode vir sem acento
 _ALLOWED_REGIONS = [
+    # País (qualquer localização no Brasil é válida inicialmente)
+    "brazil", "brasil",
     # Sudeste
-    "são paulo", "rio de janeiro", "belo horizonte", "minas gerais",
-    "espírito santo", "vitória", "campinas", "santos", "ribeirão preto",
-    "sorocaba", "guarulhos", "niterói", "juiz de fora", "uberlândia",
+    "sao paulo", "rio de janeiro", "belo horizonte", "minas gerais",
+    "espirito santo", "vitoria", "campinas", "santos", "ribeirao preto",
+    "sorocaba", "guarulhos", "niteroi", "juiz de fora", "uberlandia",
     # Sul
-    "curitiba", "porto alegre", "florianópolis", "joinville", "londrina",
-    "maringá", "blumenau", "caxias do sul", "paraná", "santa catarina",
+    "curitiba", "porto alegre", "florianopolis", "joinville", "londrina",
+    "maringa", "blumenau", "caxias do sul", "parana", "santa catarina",
     "rio grande do sul",
     # Centro-Oeste
-    "brasília", "goiânia", "campo grande", "cuiabá", "goiás",
+    "brasilia", "goiania", "campo grande", "cuiaba", "goias",
     "mato grosso", "mato grosso do sul", "distrito federal",
-    # NOTA: siglas de estado removidas daqui — causam falsos positivos
+    # NOTA: siglas de estado removidas — causam falsos positivos
     # (ex: "Praia" contém "pr", "Score" contém "sc").
-    # Siglas são checadas via BR_PATTERN com vírgula obrigatória (", SP").
 ]
 
 # Estados do Nordeste/Norte — se aparecerem, rejeita
@@ -50,8 +59,8 @@ _BLOCKED_REGIONS = [
     "salvador", "recife", "fortaleza", "belém", "manaus", "natal",
     "joão pessoa", "maceió", "teresina", "são luís", "aracaju",
     "porto velho", "macapá", "boa vista", "rio branco", "palmas",
-    "bahia", "pernambuco", "ceará", "pará", "amazonas",
-    "maranhão", "piauí", "paraíba", "alagoas", "sergipe",
+    "bahia", "pernambuco", "ceara", "amazonas",
+    "maranhao", "piaui", "paraiba", "alagoas", "sergipe",
     "rio grande do norte", "tocantins", "rondônia", "roraima",
     "amapá", "acre",
 ]
@@ -62,7 +71,7 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
         # Sem localização detectada → checar se há sinal FORTE de Brasil no texto
         # (cidade específica, não "Brazil/Brasil" genérico que vem da query de busca)
         if full_text:
-            ft_lower = full_text.lower()
+            ft_lower = _strip_accents(full_text.lower())
 
             # PRIMEIRO: rejeitar se houver sinal de país estrangeiro no texto
             # (ex: "Montreal, Canada", "New York", "London", etc.)
@@ -94,10 +103,10 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
                 "minas gerais", "santa catarina", "rio grande do sul",
                 "espírito santo", "distrito federal", "mato grosso",
                 # Formatos "cidade, estado" explícitos — inequívocos
-                "são paulo, sp", "rio de janeiro, rj", "belo horizonte, mg",
-                "porto alegre, rs", "florianópolis, sc", "curitiba, pr",
-                "brasília, df", "goiânia, go", "campo grande, ms",
-                "ribeirão preto, sp", "campinas, sp", "santos, sp",
+                "sao paulo, sp", "rio de janeiro, rj", "belo horizonte, mg",
+                "porto alegre, rs", "florianopolis, sc", "curitiba, pr",
+                "brasilia, df", "goiania, go", "campo grande, ms",
+                "ribeirao preto, sp", "campinas, sp", "santos, sp",
             ]
             for signal in unambiguous_signals:
                 if signal in ft_lower:
@@ -107,14 +116,15 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
             return False
         # Sem localização e sem texto → rejeita (melhor perder do que aceitar lixo)
         return False
-    loc_lower = location.lower()
+    # Normaliza: minúsculo + sem acentos (LinkedIn às vezes retorna sem acento)
+    loc_norm = _strip_accents(location.lower())
     # Se menciona região bloqueada → rejeita
     for blocked in _BLOCKED_REGIONS:
-        if blocked in loc_lower:
+        if _strip_accents(blocked) in loc_norm:
             return False
     # Se tem localização e menciona região permitida → aceita
     for allowed in _ALLOWED_REGIONS:
-        if allowed in loc_lower:
+        if allowed in loc_norm:  # _ALLOWED_REGIONS já sem acentos
             return True
     # Localização presente mas NÃO reconhecida → REJEITA (outro país, outra região)
     log.debug(f"[scraper] Localização não reconhecida (rejeitado): {location}")
