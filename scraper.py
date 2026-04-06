@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 GOOGLE_CSE_URL   = "https://www.googleapis.com/customsearch/v1"
+BING_SEARCH_URL  = "https://api.bing.microsoft.com/v7.0/search"
 
 def _strip_accents(s: str) -> str:
     """Remove acentos para comparação case-insensitive sem acento."""
@@ -315,7 +316,11 @@ def _google_cse_search(query: str, start: int = 1) -> Optional[list[dict]]:
     try:
         resp = requests.get(
             GOOGLE_CSE_URL,
-            params={"key": api_key, "cx": cse_id, "q": query, "num": 10, "start": start},
+            params={
+                "key": api_key, "cx": cse_id, "q": query,
+                "num": 10, "start": start,
+                "filter": "0",  # desativa dedup do Google → mais resultados únicos
+            },
             timeout=15,
         )
         if resp.status_code != 200:
@@ -329,6 +334,48 @@ def _google_cse_search(query: str, start: int = 1) -> Optional[list[dict]]:
         return items
     except requests.RequestException as e:
         log.error(f"[google] Erro de conexão: {e}")
+        return None
+
+
+# ── Bing Web Search API ──────────────────────────────────────────────────────────
+
+def _bing_search(query: str, offset: int = 0) -> Optional[list[dict]]:
+    """Executa busca no Bing Web Search API. Retorna lista de resultados ou None.
+    Free tier: 1.000 queries/mês — https://aka.ms/bingapifreetier
+    """
+    api_key = getattr(config, "BING_SEARCH_API_KEY", "")
+    if not api_key:
+        return None
+
+    try:
+        resp = requests.get(
+            BING_SEARCH_URL,
+            headers={"Ocp-Apim-Subscription-Key": api_key},
+            params={"q": query, "count": 50, "offset": offset, "mkt": "pt-BR"},
+            timeout=15,
+        )
+        if resp.status_code == 401:
+            log.warning("[bing] API key inválida.")
+            return None
+        if resp.status_code == 429:
+            log.warning("[bing] Cota atingida.")
+            return None
+        if resp.status_code != 200:
+            log.warning(f"[bing] HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        web_pages = resp.json().get("webPages", {}).get("value", [])
+        # Normaliza para o mesmo formato do Brave/Google
+        results = []
+        for item in web_pages:
+            results.append({
+                "url":         item.get("url", ""),
+                "title":       item.get("name", ""),
+                "description": item.get("snippet", ""),
+            })
+        return results
+    except requests.RequestException as e:
+        log.error(f"[bing] Erro de conexão: {e}")
         return None
 
 
@@ -369,16 +416,18 @@ def search_by_keywords(
 
     has_brave  = bool(config.BRAVE_SEARCH_API_KEY)
     has_google = bool(getattr(config, "GOOGLE_CSE_API_KEY", "")) and bool(getattr(config, "GOOGLE_CSE_ID", ""))
+    has_bing   = bool(getattr(config, "BING_SEARCH_API_KEY", ""))
 
-    if not has_brave and not has_google:
+    if not has_brave and not has_google and not has_bing:
         raise ValueError(
             "Nenhuma API de busca configurada.\n"
-            "Configure BRAVE_SEARCH_API_KEY e/ou GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID."
+            "Configure BRAVE_SEARCH_API_KEY e/ou GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID e/ou BING_SEARCH_API_KEY."
         )
 
     sources_label = []
     if has_brave:  sources_label.append("Brave")
     if has_google: sources_label.append("Google")
+    if has_bing:   sources_label.append("Bing")
     log.info(f"[scraper] Fontes ativas: {' + '.join(sources_label)}")
     log.info(f"[scraper] {len(keywords)} keywords configuradas")
 
@@ -441,6 +490,41 @@ def search_by_keywords(
                 new_in_page = 0
                 for item in items:
                     lead = _parse_result(item, source="google", keyword=keyword)
+                    if not lead:
+                        continue
+                    key = _normalize_url(lead.linkedin_url)
+                    if key in seen_urls:
+                        continue
+                    seen_urls.add(key)
+                    leads.append(lead)
+                    new_in_page += 1
+                    if len(leads) >= max_results:
+                        break
+
+                if new_in_page == 0:
+                    break
+                _human_delay()
+
+        # ── Bing Web Search (até 2 páginas de 50) ──
+        if has_bing:
+            bing_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
+            if exclusions:
+                bing_query += f" {exclusions}"
+            for page in range(2):
+                if len(leads) >= max_results:
+                    break
+                offset = page * 50
+                log.info(f"[bing] '{keyword}' p{page+1} (offset={offset})")
+
+                items = _bing_search(bing_query, offset=offset)
+                if items is None:
+                    break
+                if not items:
+                    break
+
+                new_in_page = 0
+                for item in items:
+                    lead = _parse_result(item, source="bing", keyword=keyword)
                     if not lead:
                         continue
                     key = _normalize_url(lead.linkedin_url)

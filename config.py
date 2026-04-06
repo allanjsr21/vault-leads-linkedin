@@ -33,6 +33,10 @@ GMAIL_APP_PASSWORD = _get_secret("GMAIL_APP_PASSWORD", "")
 GMAIL_REPLY_TO     = _get_secret("GMAIL_REPLY_TO", "allanjunior@vaultcapital.com.br")
 GMAIL_SENDER_NAME  = _get_secret("GMAIL_SENDER_NAME", "Allan Junior | Vault Capital")
 
+# ── Bing Web Search API (1.000 queries/mês grátis) ──────────────────────────────
+# Setup: https://portal.azure.com → Create resource → "Bing Search v7" → Free tier (F1)
+BING_SEARCH_API_KEY = _get_secret("BING_SEARCH_API_KEY", "")
+
 # ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
 # Setup: https://programmablesearchengine.google.com → criar engine → search entire web
 # API key: https://console.cloud.google.com → Custom Search API → Create Credentials
@@ -48,9 +52,14 @@ CHROME_PROFILE_PATH = _os.path.expandvars(
 # Combina tópicos × cidades para cobertura máxima
 
 CITIES_PRIORITY = [
+    # Capitais e grandes centros (maior concentração de renda)
     '"São Paulo"', '"Rio de Janeiro"', '"Belo Horizonte"',
-    'Curitiba', 'Campinas', '"Espírito Santo"',
-    '"Porto Alegre"', '"Florianópolis"', '"Brasília"',
+    'Curitiba', '"Porto Alegre"', '"Florianópolis"', '"Brasília"',
+    # Cidades com forte comunidade cripto e alta renda
+    'Campinas', 'Santos', '"Ribeirão Preto"', 'Londrina',
+    'Joinville', '"Caxias do Sul"', 'Goiânia', 'Vitória',
+    # Regiões metropolitanas
+    '"Grande São Paulo"', '"Grande Rio"',
 ]
 
 def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[str] = []) -> list[str]:
@@ -70,7 +79,7 @@ def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[s
 # Foco em sinais de interesse: entusiasta, investidor pessoal, hodler
 
 _AUTOCUSTODIA_TOPICS = [
-    # Autodeclarações de interesse
+    # ── Autodeclarações diretas de entusiasta ──────────────────────────────
     '"entusiasta bitcoin"',
     '"entusiasta de bitcoin"',
     '"entusiasta cripto"',
@@ -80,20 +89,35 @@ _AUTOCUSTODIA_TOPICS = [
     '"bitcoiner"',
     '"crypto enthusiast"',
     '"apaixonado cripto"',
-    # Sinais de atividade / ownership
+    '"bitcoin believer"',
+    '"bitcoin advocate"',
+
+    # ── Sinais de ownership / acumulação ──────────────────────────────────
     '"hodler" bitcoin',
+    '"hodl" bitcoin',
+    '"hodler de bitcoin"',
     '"investidor de criptomoedas"',
     '"acumulando bitcoin"',
     '"DCA bitcoin"',
     '"comprei bitcoin"',
     '"tenho bitcoin"',
-    # Sinais de autocustódia
+    '"stack sats"',
+    '"stacking sats"',
+    '"bitcoin maximalist"',
+    '"laser eyes" bitcoin',
+
+    # ── Sinais de autocustódia ────────────────────────────────────────────
     '"cold wallet"',
     '"hardware wallet"',
+    '"ledger" bitcoin',
+    '"trezor" bitcoin',
     '"soberania financeira"',
     '"not your keys"',
     '"autocustódia"',
-    # Profissão + interesse
+    '"self custody" bitcoin',
+    '"chaves privadas"',
+
+    # ── Profissão + interesse (perfil de alto patrimônio) ─────────────────
     '"médico" "bitcoin"',
     '"advogado" "bitcoin"',
     '"engenheiro" "bitcoin"',
@@ -107,13 +131,21 @@ _AUTOCUSTODIA_TOPICS = [
     '"executivo" "bitcoin"',
     '"CEO" "bitcoin"',
     '"diretor" "bitcoin"',
+    '"sócio" "bitcoin"',
+    '"fundador" "bitcoin"',
     '"psicólogo" "bitcoin"',
     '"nutricionista" "bitcoin"',
     '"fisioterapeuta" "bitcoin"',
     '"veterinário" "bitcoin"',
     '"farmacêutico" "bitcoin"',
+
+    # ── Contexto financeiro pessoal ────────────────────────────────────────
     '"bitcoin" "investimento pessoal"',
     '"cripto" "patrimônio"',
+    '"bitcoin" "reserva de valor"',
+    '"bitcoin" "aposentadoria"',
+    '"bitcoin" "liberdade financeira"',
+    '"bitcoin" "independência financeira"',
 ]
 
 _AUTOCUSTODIA_GENERIC = [
