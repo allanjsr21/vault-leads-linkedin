@@ -37,6 +37,10 @@ GMAIL_SENDER_NAME  = _get_secret("GMAIL_SENDER_NAME", "Allan Junior | Vault Capi
 # Setup: https://portal.azure.com → Create resource → "Bing Search v7" → Free tier (F1)
 BING_SEARCH_API_KEY = _get_secret("BING_SEARCH_API_KEY", "")
 
+# ── Serper.dev — Google Search API (2.500 queries grátis, sem cartão) ────────────
+# Setup: https://serper.dev → Dashboard → API Keys
+SERPER_API_KEY = _get_secret("SERPER_API_KEY", "")
+
 # ── Google Custom Search API (100 queries/dia grátis) ─────────────────────────
 # Setup: https://programmablesearchengine.google.com → criar engine → search entire web
 # API key: https://console.cloud.google.com → Custom Search API → Create Credentials

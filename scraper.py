@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 GOOGLE_CSE_URL   = "https://www.googleapis.com/customsearch/v1"
 BING_SEARCH_URL  = "https://api.bing.microsoft.com/v7.0/search"
+SERPER_SEARCH_URL = "https://google.serper.dev/search"
 
 def _strip_accents(s: str) -> str:
     """Remove acentos para comparação case-insensitive sem acento."""
@@ -379,6 +380,47 @@ def _bing_search(query: str, offset: int = 0) -> Optional[list[dict]]:
         return None
 
 
+# ── Serper.dev — Google Search API ───────────────────────────────────────────────
+
+def _serper_search(query: str, page: int = 1) -> Optional[list[dict]]:
+    """Executa busca via Serper.dev (Google Search API). 2.500 queries grátis.
+    Docs: https://serper.dev/
+    """
+    api_key = getattr(config, "SERPER_API_KEY", "")
+    if not api_key:
+        return None
+
+    try:
+        resp = requests.post(
+            SERPER_SEARCH_URL,
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"q": query, "num": 10, "page": page, "gl": "br", "hl": "pt"},
+            timeout=15,
+        )
+        if resp.status_code == 401:
+            log.warning("[serper] API key inválida.")
+            return None
+        if resp.status_code == 429:
+            log.warning("[serper] Cota atingida.")
+            return None
+        if resp.status_code != 200:
+            log.warning(f"[serper] HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        organic = resp.json().get("organic", [])
+        results = []
+        for item in organic:
+            results.append({
+                "url":         item.get("link", ""),
+                "title":       item.get("title", ""),
+                "description": item.get("snippet", ""),
+            })
+        return results
+    except requests.RequestException as e:
+        log.error(f"[serper] Erro de conexão: {e}")
+        return None
+
+
 # ── Delay humanizado ─────────────────────────────────────────────────────────────
 
 def _human_delay():
@@ -417,16 +459,19 @@ def search_by_keywords(
     has_brave  = bool(config.BRAVE_SEARCH_API_KEY)
     has_google = bool(getattr(config, "GOOGLE_CSE_API_KEY", "")) and bool(getattr(config, "GOOGLE_CSE_ID", ""))
     has_bing   = bool(getattr(config, "BING_SEARCH_API_KEY", ""))
+    has_serper = bool(getattr(config, "SERPER_API_KEY", ""))
 
-    if not has_brave and not has_google and not has_bing:
+    if not has_brave and not has_google and not has_bing and not has_serper:
         raise ValueError(
             "Nenhuma API de busca configurada.\n"
-            "Configure BRAVE_SEARCH_API_KEY e/ou GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID e/ou BING_SEARCH_API_KEY."
+            "Configure BRAVE_SEARCH_API_KEY e/ou GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID "
+            "e/ou BING_SEARCH_API_KEY e/ou SERPER_API_KEY."
         )
 
     sources_label = []
     if has_brave:  sources_label.append("Brave")
-    if has_google: sources_label.append("Google")
+    if has_google: sources_label.append("Google CSE")
+    if has_serper: sources_label.append("Serper")
     if has_bing:   sources_label.append("Bing")
     log.info(f"[scraper] Fontes ativas: {' + '.join(sources_label)}")
     log.info(f"[scraper] {len(keywords)} keywords configuradas")
@@ -490,6 +535,40 @@ def search_by_keywords(
                 new_in_page = 0
                 for item in items:
                     lead = _parse_result(item, source="google", keyword=keyword)
+                    if not lead:
+                        continue
+                    key = _normalize_url(lead.linkedin_url)
+                    if key in seen_urls:
+                        continue
+                    seen_urls.add(key)
+                    leads.append(lead)
+                    new_in_page += 1
+                    if len(leads) >= max_results:
+                        break
+
+                if new_in_page == 0:
+                    break
+                _human_delay()
+
+        # ── Serper.dev — Google Search (até 3 páginas de 10) ──
+        if has_serper:
+            serper_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
+            if exclusions:
+                serper_query += f" {exclusions}"
+            for page in range(1, 4):
+                if len(leads) >= max_results:
+                    break
+                log.info(f"[serper] '{keyword}' p{page}")
+
+                items = _serper_search(serper_query, page=page)
+                if items is None:
+                    break
+                if not items:
+                    break
+
+                new_in_page = 0
+                for item in items:
+                    lead = _parse_result(item, source="serper", keyword=keyword)
                     if not lead:
                         continue
                     key = _normalize_url(lead.linkedin_url)
