@@ -1006,57 +1006,6 @@ if btn_collect_voyager:
     st.session_state.running = False
     st.rerun()
 
-if btn_collect_voyager:
-    st.session_state.running = True
-    add_log("Iniciando coleta via LinkedIn Direto (Voyager API)...")
-
-    with st.spinner("Buscando perfis diretamente no LinkedIn..."):
-        try:
-            import config as _cfg
-            from scraper import search_linkedin_voyager
-            from leads_manager import add_leads
-
-            def _voyager_cb(current, total, kw):
-                add_log(f"  [{current}/{total}] keyword: {kw}")
-
-            voyager_leads = search_linkedin_voyager(
-                max_results=100,
-                callback=_voyager_cb,
-            )
-            add_log(f"{len(voyager_leads)} perfis coletados via Voyager")
-
-            # Filtro Gemini (se configurado)
-            if getattr(_cfg, "GEMINI_API_KEY", "") and voyager_leads:
-                add_log(f"Filtrando {len(voyager_leads)} leads via Gemini IA...")
-                from gemini_filter import qualify_leads_batch
-                voyager_leads, rejected = qualify_leads_batch(
-                    voyager_leads,
-                    callback=lambda i, t, name, r: add_log(
-                        f"  [{i}/{t}] {name}: {'ACEITO' if r is not False else 'REJEITADO'}"
-                    ) if (i % 5 == 0 or r is False) else None,
-                )
-                add_log(f"Gemini: {len(voyager_leads)} aceitos, {rejected} rejeitados")
-
-            added, dupes = add_leads(voyager_leads)
-            add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
-
-            from dataclasses import asdict
-            if voyager_leads:
-                st.session_state.session_df = pd.DataFrame([asdict(l) for l in voyager_leads])
-            else:
-                st.session_state.session_df = _EMPTY_DF.copy()
-
-            add_log("Coleta LinkedIn Direto concluída!")
-            st.success(f"LinkedIn Direto: {added} leads novos.")
-        except Exception as e:
-            import traceback
-            add_log(f"ERRO Voyager: {e}")
-            add_log(traceback.format_exc())
-            st.error(str(e))
-
-    st.session_state.running = False
-    st.rerun()
-
 if btn_send:
     st.session_state.running = True
     add_log(f"Iniciando envio de DMs — perfil: {profile_data['name']}")
