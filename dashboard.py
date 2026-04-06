@@ -972,8 +972,14 @@ if btn_load_sheets:
     st.rerun()
 
 if btn_clear:
+    # Limpa sessão E o CSV persistido
     st.session_state.session_df = _EMPTY_DF.copy()
-    add_log("Tabela limpa.")
+    try:
+        import leads_manager as _lm
+        _lm._csv_save_leads({})  # salva CSV vazio
+        add_log("Leads limpos (sessão + CSV).")
+    except Exception as _e:
+        add_log(f"Sessão limpa. CSV: {_e}")
     st.rerun()
 
 if btn_ai_score:
