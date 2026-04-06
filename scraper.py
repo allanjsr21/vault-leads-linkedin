@@ -861,6 +861,60 @@ def search_by_events(max_results: int = 30) -> list[Lead]:
     return leads
 
 
+# ── LinkedIn Direto (Voyager API) ────────────────────────────────────────────────
+
+def search_linkedin_voyager(max_results: int = 100, callback=None) -> list[Lead]:
+    """
+    Busca perfis diretamente no LinkedIn via Voyager API interna.
+    Requer LINKEDIN_LI_AT e LINKEDIN_JSESSIONID configurados.
+    Retorna lista de Lead prontos para salvar.
+    """
+    from linkedin_voyager import search_linkedin_direct
+    from models import _normalize_url
+
+    raw = search_linkedin_direct(max_results=max_results, callback=callback)
+
+    leads: list[Lead] = []
+    seen_urls: set[str] = set()
+
+    for r in raw:
+        url = r.get("url", "")
+        if not url:
+            continue
+        key = _normalize_url(url)
+        if key in seen_urls:
+            continue
+        seen_urls.add(key)
+
+        name     = r.get("name", "").strip()
+        headline = r.get("headline", "").strip()
+        location = r.get("location", "").strip()
+
+        # Separar cargo e empresa do headline (formato "Cargo na Empresa")
+        job_title = headline
+        company   = ""
+        for sep in (" na ", " at ", " em ", " @ ", " - "):
+            if sep in headline:
+                parts     = headline.split(sep, 1)
+                job_title = parts[0].strip()
+                company   = parts[1].strip()
+                break
+
+        leads.append(Lead(
+            name         = name,
+            linkedin_url = url,
+            job_title    = job_title,
+            company      = company,
+            location     = location,
+            bio          = headline,
+            source       = "voyager",
+            status       = "pending",
+        ))
+
+    log.info(f"[scraper] Voyager: {len(leads)} leads convertidos para Lead")
+    return leads
+
+
 # ── Execução direta ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

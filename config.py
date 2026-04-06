@@ -294,6 +294,12 @@ GOOGLE_OAUTH_FILE = "oauth_credentials.json"
 GOOGLE_TOKEN_FILE = "google_token.json"
 SHEET_OWNER_EMAIL = "allanjunior@vaultcapital.com.br"
 
+# ── LinkedIn Direct (Voyager API) ─────────────────────────────────────────────
+# Como obter: LinkedIn → DevTools (F12) → Application → Cookies → linkedin.com
+# Copie: li_at e JSESSIONID
+LINKEDIN_LI_AT      = _get_secret("LINKEDIN_LI_AT", "")
+LINKEDIN_JSESSIONID = _get_secret("LINKEDIN_JSESSIONID", "")
+
 # ── Arquivos de saída ──────────────────────────────────────────────────────────
 LOG_FILE = "agent.log"
 
