@@ -8,6 +8,7 @@ import os
 import time
 import pandas as pd
 import streamlit as st
+import config
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -801,7 +802,6 @@ def add_log(msg: str):
 
 
 # ── Config de perfil ───────────────────────────────────────────────────────────
-import config
 profile_data = apply_profile(profile_choice)
 
 # ── Cabeçalho ──────────────────────────────────────────────────────────────────
