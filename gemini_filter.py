@@ -108,7 +108,7 @@ def qualify_lead(name: str, job_title: str = "", company: str = "",
 
         _last_call_time = time.time()
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,

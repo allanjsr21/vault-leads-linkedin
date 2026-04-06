@@ -63,16 +63,41 @@ def _location_allowed(location: str, full_text: str = "") -> bool:
         # (cidade específica, não "Brazil/Brasil" genérico que vem da query de busca)
         if full_text:
             ft_lower = full_text.lower()
-            # Sinais fortes: cidades com 2+ palavras (sem ambiguidade)
-            # e estados por extenso
+
+            # PRIMEIRO: rejeitar se houver sinal de país estrangeiro no texto
+            # (ex: "Montreal, Canada", "New York", "London", etc.)
+            foreign_signals = [
+                "canada", "montreal", "toronto", "vancouver", "ottawa",
+                "united states", "united kingdom", "australia", "new zealand",
+                "new york", "london", "paris", "madrid", "berlin", "amsterdam",
+                "lisbon", "porto, portugal", "mexico", "argentina", "colombia",
+                "chile", "peru", "spain", "france", "germany", "italy",
+                "netherlands", "switzerland", "austria", "sweden", "norway",
+                "denmark", "finland", "poland", "czech", "romania",
+                "india", "china", "japan", "singapore", "hong kong",
+                "dubai", "uae", "south africa", "nigeria", "kenya",
+                ", ca", ", us", ", uk", ", au", ", nz",
+            ]
+            for foreign in foreign_signals:
+                if foreign in ft_lower:
+                    return False  # Sinal estrangeiro encontrado → rejeita
+
+            # Sinais fortes de localização pessoal brasileira
+            # REMOVIDAS cidades soltas (ex: "São Paulo") pois aparecem em nomes
+            # de conferências (ex: "Scaling Bitcoin Conference São Paulo").
+            # Exige formato LinkedIn de localização: "Cidade, SP" ou estado por extenso.
             unambiguous_signals = [
-                "são paulo", "rio de janeiro", "belo horizonte",
-                "porto alegre", "florianópolis", "ribeirão preto",
-                "juiz de fora", "campo grande", "caxias do sul",
-                "minas gerais", "paraná", "santa catarina",
-                "rio grande do sul", "distrito federal",
-                "espírito santo",
+                # Formato LinkedIn: "Cidade, UF" — muito específico, raramente em eventos
                 ", sp", ", rj", ", mg", ", pr", ", sc", ", rs", ", df",
+                ", es", ", ms", ", mt", ", go", ", ro", ", am", ", pa",
+                # Estados por extenso — aparecem raramente em nomes de conferências
+                "minas gerais", "santa catarina", "rio grande do sul",
+                "espírito santo", "distrito federal", "mato grosso",
+                # Formatos "cidade, estado" explícitos — inequívocos
+                "são paulo, sp", "rio de janeiro, rj", "belo horizonte, mg",
+                "porto alegre, rs", "florianópolis, sc", "curitiba, pr",
+                "brasília, df", "goiânia, go", "campo grande, ms",
+                "ribeirão preto, sp", "campinas, sp", "santos, sp",
             ]
             for signal in unambiguous_signals:
                 if signal in ft_lower:
