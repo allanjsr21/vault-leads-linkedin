@@ -39,57 +39,59 @@ def _get_client():
         return None
 
 
-QUALIFY_PROMPT = """Voce e um filtro de leads para a Vault Capital, empresa que organiza eventos de autocustodia de Bitcoin e oferece consultoria em criptoativos.
+QUALIFY_PROMPT = """Voce e um classificador de leads para a Vault Capital (custódia e gestão de Bitcoin).
 
-Analise este perfil do LinkedIn e responda APENAS "SIM" ou "NAO".
+Analise o perfil abaixo e retorne UM JSON com dois campos:
+- "score": número inteiro de 1 a 10
+- "reason": frase curta (max 15 palavras) explicando a nota
 
-Responda SIM se:
-- Pessoa COMUM (medico, advogado, empresario, engenheiro, dentista, etc.) que menciona Bitcoin, cripto, blockchain ou investimentos digitais no perfil
-- Investidor pessoal de Bitcoin/cripto (nao profissional de exchange)
-- Entusiasta de Bitcoin, hodler, interessado em autocustodia
-- Empresario/executivo que pode ter interesse em diversificar patrimonio em cripto
-- Qualquer profissional que demonstre interesse pessoal em Bitcoin
+CRITÉRIOS DE PONTUAÇÃO:
+9-10 → Perfil IDEAL: profissional de alta renda (médico, advogado, engenheiro, CEO, empresário)
+       que menciona EXPLICITAMENTE bitcoin, hodl, autocustódia, cold wallet ou hardware wallet.
+       Ex: "Cirurgião em SP. Bitcoin maximalist. Stack sats diariamente."
 
-Responda NAO se:
-- Funcionario de exchange (Binance, Coinbase, Mercado Bitcoin, Foxbit, etc.)
-- Analista de cripto, trader profissional, gestor de fundo cripto
-- Influencer/youtuber de cripto (ja sabe tudo, nao e nosso publico)
-- Perfil sem NENHUMA conexao com Bitcoin/cripto/investimentos
-- Politico, celebridade, pessoa inacessivel
-- Perfil de empresa (nao pessoa fisica)
+7-8  → Bom lead: profissional de alta renda que menciona cripto/blockchain/investimento digital
+       de forma clara, mesmo sem citar bitcoin diretamente.
+       Ex: "Dentista. Investidor em criptoativos desde 2018."
+
+5-6  → Lead médio: empresário/executivo/profissional sem menção a cripto, mas perfil de patrimônio
+       alto (sócio, fundador, diretor) — pode ser abordado com contexto educacional.
+
+3-4  → Baixa qualidade: profissional de área não relacionada, sem sinal de interesse em cripto.
+
+1-2  → REJEITAR: funcionário de exchange, trader profissional, influencer cripto, político,
+       perfil de empresa (não pessoa física), pessoa inacessível.
 
 PERFIL:
 Nome: {name}
 Cargo: {job_title}
 Empresa: {company}
-Localizacao: {location}
+Localização: {location}
 Bio/Headline: {bio}
 
-Responda apenas SIM ou NAO:"""
+Retorne SOMENTE o JSON, sem markdown, sem explicação extra:
+{{"score": N, "reason": "..."}}"""
 
 
 def qualify_lead(name: str, job_title: str = "", company: str = "",
-                 location: str = "", bio: str = "") -> Optional[bool]:
+                 location: str = "", bio: str = "") -> Optional[dict]:
     """
-    Usa Gemini Flash para qualificar um lead.
+    Usa Gemini Flash para qualificar um lead com score 1-10.
 
     Returns:
-        True = lead qualificado (aceitar)
-        False = lead nao qualificado (rejeitar)
-        None = erro ou sem API key (aceitar por padrao)
+        dict com {"score": int, "reason": str}
+        None = erro ou sem API key
     """
     global _last_call_time
 
-    # Cache key
     cache_key = f"{name}|{job_title}|{company}".lower().strip()
     if cache_key in _cache:
         return _cache[cache_key]
 
     client = _get_client()
     if client is None:
-        return None  # Sem API = aceita por padrao
+        return None
 
-    # Rate limiting
     now = time.time()
     elapsed = now - _last_call_time
     if elapsed < _MIN_INTERVAL:
@@ -97,45 +99,57 @@ def qualify_lead(name: str, job_title: str = "", company: str = "",
 
     prompt = QUALIFY_PROMPT.format(
         name=name,
-        job_title=job_title or "(nao informado)",
-        company=company or "(nao informado)",
-        location=location or "(nao informado)",
-        bio=bio or "(nao informado)",
+        job_title=job_title or "(não informado)",
+        company=company or "(não informado)",
+        location=location or "(não informado)",
+        bio=bio or "(não informado)",
     )
 
     try:
+        import json as _json
         from google.genai import types
 
         _last_call_time = time.time()
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.0,
-                max_output_tokens=5,
+                max_output_tokens=60,
             ),
         )
 
-        answer = response.text.strip().upper()
-        result = "SIM" in answer
+        raw = response.text.strip()
+        # Extrair JSON mesmo se vier com markdown ```json ... ```
+        json_match = __import__("re").search(r'\{.*\}', raw, __import__("re").DOTALL)
+        if not json_match:
+            raise ValueError(f"JSON não encontrado na resposta: {raw}")
 
-        _cache[cache_key] = result
-        label = "ACEITO" if result else "REJEITADO"
-        log.info(f"[gemini] {label}: {name} ({job_title} @ {company})")
-        return result
+        result = _json.loads(json_match.group(0))
+        score = int(result.get("score", 0))
+        reason = result.get("reason", "")
+
+        _cache[cache_key] = {"score": score, "reason": reason}
+        log.info(f"[gemini] score={score} | {name} ({job_title} @ {company}) — {reason}")
+        return _cache[cache_key]
 
     except Exception as e:
         log.error(f"[gemini] Erro ao qualificar {name}: {e}")
-        return None  # Erro = aceita por padrao
+        return None
 
 
-def qualify_leads_batch(leads: list, callback=None) -> tuple[list, int]:
+def qualify_leads_batch(leads: list, min_score: int = 6, callback=None) -> tuple[list, int]:
     """
-    Filtra uma lista de leads via Gemini.
+    Filtra e ordena leads via Gemini (score 1-10).
+
+    Args:
+        min_score: score mínimo para aceitar (default 6)
 
     Returns:
-        (leads_aceitos, total_rejeitados)
+        (leads_aceitos_ordenados_por_score, total_rejeitados)
     """
+    import json as _json
+
     accepted = []
     rejected = 0
 
@@ -148,12 +162,25 @@ def qualify_leads_batch(leads: list, callback=None) -> tuple[list, int]:
             bio=lead.bio,
         )
 
-        if result is False:
-            rejected += 1
-        else:
+        if result is None:
+            # Sem API key ou erro → aceita com score neutro
             accepted.append(lead)
+        elif result["score"] >= min_score:
+            lead.ai_score = _json.dumps(result, ensure_ascii=False)
+            accepted.append(lead)
+        else:
+            rejected += 1
 
         if callback:
-            callback(i + 1, len(leads), lead.name, result)
+            score = result["score"] if result else None
+            callback(i + 1, len(leads), lead.name, score)
 
+    # Ordenar aceitos por score decrescente (melhores primeiro)
+    def _score(l):
+        try:
+            return _json.loads(l.ai_score).get("score", 0)
+        except Exception:
+            return 0
+
+    accepted.sort(key=_score, reverse=True)
     return accepted, rejected

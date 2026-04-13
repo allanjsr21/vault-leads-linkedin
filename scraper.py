@@ -627,16 +627,18 @@ def search_by_keywords(
 
 def search_by_post_engagement(
     post_urls: Optional[list[str]] = None,
-    max_results: int = 30,
+    max_results: int = 50,
 ) -> list[Lead]:
     """
     Encontra autores de artigos e posts sobre crypto no LinkedIn.
-    Usa Brave Search para buscar conteúdo publicado (linkedin.com/pulse e /posts).
+    Usa Brave Search + Serper para buscar conteúdo publicado (linkedin.com/pulse e /posts).
 
     Autores de conteúdo crypto = leads altamente engajados.
     """
-    if not config.BRAVE_SEARCH_API_KEY:
-        log.info("[posts] Brave API key não disponível — ignorado.")
+    has_brave  = bool(config.BRAVE_SEARCH_API_KEY)
+    has_serper = bool(getattr(config, "SERPER_API_KEY", ""))
+    if not has_brave and not has_serper:
+        log.info("[posts] Nenhuma API de busca disponível — ignorado.")
         return []
 
     leads: list[Lead] = []
@@ -645,14 +647,31 @@ def search_by_post_engagement(
     # Tópicos de conteúdo crypto em PT-BR
     # Foco: quem ESCREVE e COMPARTILHA sobre bitcoin = alto interesse pessoal
     content_queries = [
-        # Artigos LinkedIn Pulse sobre autocustódia
+        # ── Artigos LinkedIn Pulse (alta intenção — escreveu sobre o tema) ──
         'site:linkedin.com/pulse "bitcoin" "autocustodia" Brasil',
         'site:linkedin.com/pulse "bitcoin" "hardware wallet" Brasil',
         'site:linkedin.com/pulse "bitcoin" "soberania financeira"',
         'site:linkedin.com/pulse "bitcoin" "investimento" Brasil',
         'site:linkedin.com/pulse "bitcoin" "longo prazo" Brasil',
         'site:linkedin.com/pulse "criptomoeda" "investir" Brasil',
-        # Posts LinkedIn sobre bitcoin (quem posta = demonstra interesse)
+        'site:linkedin.com/pulse "bitcoin" "hodl" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "cold wallet"',
+        'site:linkedin.com/pulse "bitcoin" "ledger" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "trezor" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "not your keys"',
+        'site:linkedin.com/pulse "stack sats" Brasil',
+        'site:linkedin.com/pulse "DCA bitcoin" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "reserva de valor" Brasil',
+        'site:linkedin.com/pulse "bitcoin" "aposentadoria" Brasil',
+        # ── Profissão + bitcoin (artigos de médicos/advogados/engenheiros) ──
+        'site:linkedin.com/pulse "médico" "bitcoin"',
+        'site:linkedin.com/pulse "advogado" "bitcoin"',
+        'site:linkedin.com/pulse "engenheiro" "bitcoin"',
+        'site:linkedin.com/pulse "dentista" "bitcoin"',
+        'site:linkedin.com/pulse "empresário" "bitcoin"',
+        'site:linkedin.com/pulse "CEO" "bitcoin" Brasil',
+        'site:linkedin.com/pulse "diretor" "bitcoin" Brasil',
+        # ── Posts LinkedIn (engajamento recente) ──
         'site:linkedin.com/posts "bitcoin" "autocustodia"',
         'site:linkedin.com/posts "bitcoin" "hodl"',
         'site:linkedin.com/posts "comprei bitcoin"',
@@ -661,9 +680,25 @@ def search_by_post_engagement(
         'site:linkedin.com/posts "bitcoin" "cold wallet"',
         'site:linkedin.com/posts "bitcoin" "São Paulo"',
         'site:linkedin.com/posts "bitcoin" "Rio de Janeiro"',
-        # Compartilhamentos de conteúdo crypto
         'site:linkedin.com/posts "bitcoin" "soberania"',
         'site:linkedin.com/posts "cripto" "investimento pessoal"',
+        'site:linkedin.com/posts "stack sats"',
+        'site:linkedin.com/posts "laser eyes" bitcoin',
+        'site:linkedin.com/posts "bitcoin maximalist" Brasil',
+        'site:linkedin.com/posts "hodler" "bitcoin" Brasil',
+        'site:linkedin.com/posts "bitcoin" "Curitiba"',
+        'site:linkedin.com/posts "bitcoin" "Belo Horizonte"',
+        'site:linkedin.com/posts "bitcoin" "Florianópolis"',
+        'site:linkedin.com/posts "bitcoin" "Porto Alegre"',
+        'site:linkedin.com/posts "bitcoin" "Brasília"',
+        # ── Perfis que mencionam bitcoin na headline (sinal direto) ──
+        'site:linkedin.com/in "₿" "São Paulo" médico OR advogado OR engenheiro OR empresário',
+        'site:linkedin.com/in "bitcoin" "hodler" Brasil',
+        'site:linkedin.com/in "bitcoin maximalist" Brasil',
+        'site:linkedin.com/in "autocustódia" bitcoin Brasil',
+        'site:linkedin.com/in "stack sats" Brasil',
+        'site:linkedin.com/in "not your keys" Brasil',
+        'site:linkedin.com/in "cold wallet" bitcoin Brasil',
     ]
     random.shuffle(content_queries)
 
@@ -672,7 +707,11 @@ def search_by_post_engagement(
             break
 
         log.info(f"[posts] Buscando: {query[:60]}...")
-        items = _brave_search(query)
+
+        # Tentar Brave primeiro, depois Serper como fallback
+        items = _brave_search(query) if has_brave else None
+        if not items and has_serper:
+            items = _serper_search(query)
         if not items:
             _human_delay()
             continue

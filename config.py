@@ -25,6 +25,10 @@ GEMINI_API_KEY = _get_secret("GEMINI_API_KEY", "")
 # ── Hunter.io — para enriquecimento de email ─────────────────────────────────
 HUNTER_API_KEY = _get_secret("HUNTER_API_KEY", "")
 
+# ── Icypeas — email finder (melhor cobertura BR) ──────────────────────────────
+# Setup: https://app.icypeas.com → Settings → API Key
+ICYPEAS_API_KEY = _get_secret("ICYPEAS_API_KEY", "")
+
 # ── Gmail SMTP — para envio de email follow-up ───────────────────────────────
 # GMAIL_USER = conta Google com App Password (ex: allan.junior777@gmail.com)
 # GMAIL_REPLY_TO = email profissional que aparece como remetente

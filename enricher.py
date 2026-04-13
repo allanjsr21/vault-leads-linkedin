@@ -19,7 +19,8 @@ import config
 
 log = logging.getLogger(__name__)
 
-HUNTER_API_URL = "https://api.hunter.io/v2/email-finder"
+HUNTER_API_URL  = "https://api.hunter.io/v2/email-finder"
+ICYPEAS_API_URL = "https://app.icypeas.com/api/bulk-single-search/email-search"
 
 
 def _clean_company_domain(company: str) -> str:
@@ -36,6 +37,66 @@ def _clean_company_domain(company: str) -> str:
     if domain:
         return f"{domain}.com.br"
     return ""
+
+
+# ── Icypeas ───────────────────────────────────────────────────────────────────
+
+def icypeas_find_email(
+    first_name: str,
+    last_name: str,
+    company: str = "",
+    domain: str = "",
+) -> Optional[dict]:
+    """
+    Busca email via Icypeas API (melhor cobertura para empresas BR).
+    Requer ICYPEAS_API_KEY no config/secrets.
+    """
+    api_key = getattr(config, "ICYPEAS_API_KEY", "")
+    if not api_key:
+        return None
+
+    domain_or_company = domain or company
+    if not domain_or_company:
+        return None
+
+    try:
+        resp = requests.post(
+            ICYPEAS_API_URL,
+            headers={
+                "Authorization": api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "firstname": first_name,
+                "lastname": last_name,
+                "domainOrCompany": domain_or_company,
+            },
+            timeout=15,
+        )
+        if resp.status_code == 401:
+            log.warning("[icypeas] API key inválida.")
+            return None
+        if resp.status_code == 402:
+            log.warning("[icypeas] Créditos esgotados.")
+            return None
+        if resp.status_code != 200:
+            log.warning(f"[icypeas] HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        data = resp.json()
+        # Icypeas retorna item com email no campo "item" ou direto
+        item = data.get("item") or data
+        email = item.get("email") or item.get("emails", [None])[0]
+        if email:
+            return {
+                "email": email,
+                "score": item.get("score", 0),
+                "source": "icypeas",
+            }
+    except requests.RequestException as e:
+        log.error(f"[icypeas] Erro de conexão: {e}")
+
+    return None
 
 
 # ── Hunter.io ──────────────────────────────────────────────────────────────────
@@ -106,7 +167,20 @@ def enrich_lead(lead) -> dict:
     first_name = name_parts[0]
     last_name = name_parts[-1]
 
-    # Tentar Hunter.io
+    # Tentar Icypeas primeiro (melhor cobertura BR)
+    icypeas_result = icypeas_find_email(
+        first_name=first_name,
+        last_name=last_name,
+        company=lead.company or "",
+    )
+    if icypeas_result:
+        result["email"] = icypeas_result["email"]
+        result["email_source"] = "icypeas"
+        result["email_confidence"] = icypeas_result.get("score", 0)
+        log.info(f"[enricher] Email encontrado via Icypeas: {icypeas_result['email']}")
+        return result
+
+    # Fallback: Hunter.io
     hunter_result = hunter_find_email(
         first_name=first_name,
         last_name=last_name,
