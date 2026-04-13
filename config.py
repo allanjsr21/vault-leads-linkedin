@@ -60,14 +60,9 @@ CHROME_PROFILE_PATH = _os.path.expandvars(
 # Combina tópicos × cidades para cobertura máxima
 
 CITIES_PRIORITY = [
-    # Capitais e grandes centros (maior concentração de renda)
+    # Apenas as maiores capitais (maior concentração de renda + cripto)
     '"São Paulo"', '"Rio de Janeiro"', '"Belo Horizonte"',
-    'Curitiba', '"Porto Alegre"', '"Florianópolis"', '"Brasília"',
-    # Cidades com forte comunidade cripto e alta renda
-    'Campinas', 'Santos', '"Ribeirão Preto"', 'Londrina',
-    'Joinville', '"Caxias do Sul"', 'Goiânia', 'Vitória',
-    # Regiões metropolitanas
-    '"Grande São Paulo"', '"Grande Rio"',
+    'Curitiba', '"Porto Alegre"', '"Brasília"',
 ]
 
 def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[str] = []) -> list[str]:
@@ -87,73 +82,33 @@ def _generate_keywords(topics: list[str], cities: list[str], generic_kws: list[s
 # Foco em sinais de interesse: entusiasta, investidor pessoal, hodler
 
 _AUTOCUSTODIA_TOPICS = [
-    # ── Autodeclarações diretas de entusiasta ──────────────────────────────
-    '"entusiasta bitcoin"',
-    '"entusiasta de bitcoin"',
-    '"entusiasta cripto"',
-    '"apaixonado por bitcoin"',
-    '"bitcoin enthusiast"',
-    '"investidor bitcoin"',
+    # ── Autodeclarações diretas (maior sinal) ─────────────────────────────
     '"bitcoiner"',
-    '"crypto enthusiast"',
-    '"apaixonado cripto"',
-    '"bitcoin believer"',
-    '"bitcoin advocate"',
-
-    # ── Sinais de ownership / acumulação ──────────────────────────────────
+    '"bitcoin enthusiast"',
+    '"entusiasta bitcoin"',
+    '"investidor bitcoin"',
     '"hodler" bitcoin',
-    '"hodl" bitcoin',
-    '"hodler de bitcoin"',
-    '"investidor de criptomoedas"',
-    '"acumulando bitcoin"',
-    '"DCA bitcoin"',
-    '"comprei bitcoin"',
-    '"tenho bitcoin"',
-    '"stack sats"',
-    '"stacking sats"',
     '"bitcoin maximalist"',
-    '"laser eyes" bitcoin',
 
     # ── Sinais de autocustódia ────────────────────────────────────────────
-    '"cold wallet"',
     '"hardware wallet"',
-    '"ledger" bitcoin',
-    '"trezor" bitcoin',
     '"soberania financeira"',
-    '"not your keys"',
     '"autocustódia"',
-    '"self custody" bitcoin',
-    '"chaves privadas"',
+    '"not your keys"',
 
     # ── Profissão + interesse (perfil de alto patrimônio) ─────────────────
     '"médico" "bitcoin"',
     '"advogado" "bitcoin"',
     '"engenheiro" "bitcoin"',
     '"empresário" "bitcoin"',
-    '"dentista" "bitcoin"',
-    '"arquiteto" "bitcoin"',
-    '"professor" "bitcoin"',
-    '"contador" "bitcoin"',
-    '"corretor" "bitcoin"',
-    '"consultor" "bitcoin"',
-    '"executivo" "bitcoin"',
     '"CEO" "bitcoin"',
-    '"diretor" "bitcoin"',
-    '"sócio" "bitcoin"',
+    '"dentista" "bitcoin"',
     '"fundador" "bitcoin"',
-    '"psicólogo" "bitcoin"',
-    '"nutricionista" "bitcoin"',
-    '"fisioterapeuta" "bitcoin"',
-    '"veterinário" "bitcoin"',
-    '"farmacêutico" "bitcoin"',
+    '"diretor" "bitcoin"',
 
     # ── Contexto financeiro pessoal ────────────────────────────────────────
-    '"bitcoin" "investimento pessoal"',
-    '"cripto" "patrimônio"',
     '"bitcoin" "reserva de valor"',
-    '"bitcoin" "aposentadoria"',
     '"bitcoin" "liberdade financeira"',
-    '"bitcoin" "independência financeira"',
 ]
 
 _AUTOCUSTODIA_GENERIC = [
@@ -289,7 +244,8 @@ TITLE_EXCLUSIONS = [
 
 # ── Limites de operação ────────────────────────────────────────────────────────
 MAX_LEADS_PER_RUN = 100
-MAX_PAGES_PER_KEYWORD = 3  # paginas por keyword (para economizar cota)
+MAX_PAGES_PER_KEYWORD = 1  # 1 página por keyword (rápido — 20 resultados/query é suficiente)
+MAX_KEYWORDS_PER_RUN = 40  # cap de keywords por execução (evita rodar centenas)
 MAX_DMS_PER_DAY = 20
 DELAY_BETWEEN_DMS = (30, 90)
 

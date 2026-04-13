@@ -456,6 +456,12 @@ def search_by_keywords(
     keywords = list(keywords)
     random.shuffle(keywords)
 
+    # ── Cap de keywords por run (evita rodar centenas de queries) ─────────
+    max_kw = getattr(config, "MAX_KEYWORDS_PER_RUN", 40)
+    if len(keywords) > max_kw:
+        keywords = keywords[:max_kw]
+        log.info(f"[scraper] Keywords limitadas a {max_kw} por MAX_KEYWORDS_PER_RUN")
+
     has_brave  = bool(config.BRAVE_SEARCH_API_KEY)
     has_google = bool(getattr(config, "GOOGLE_CSE_API_KEY", "")) and bool(getattr(config, "GOOGLE_CSE_ID", ""))
     has_bing   = bool(getattr(config, "BING_SEARCH_API_KEY", ""))
