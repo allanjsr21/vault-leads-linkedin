@@ -1114,10 +1114,15 @@ if btn_enrich:
         st.warning("Nenhum lead carregado. Colete ou carregue leads primeiro.")
     else:
         import config as _cfg
-        if not getattr(_cfg, "HUNTER_API_KEY", ""):
-            st.warning("HUNTER_API_KEY não configurada. Adicione no Streamlit secrets.")
+        has_hunter  = bool(getattr(_cfg, "HUNTER_API_KEY", ""))
+        has_icypeas = bool(getattr(_cfg, "ICYPEAS_API_KEY", ""))
+        if not has_hunter and not has_icypeas:
+            st.warning("Nenhum provedor de email configurado. Adicione ICYPEAS_API_KEY ou HUNTER_API_KEY no Streamlit secrets.")
         else:
-            with st.spinner("Buscando emails via Hunter.io..."):
+            _providers = []
+            if has_icypeas: _providers.append("Icypeas")
+            if has_hunter:  _providers.append("Hunter.io")
+            with st.spinner(f"Buscando emails via {' + '.join(_providers)}..."):
                 try:
                     from enricher import enrich_lead
                     from models import Lead as _Lead
