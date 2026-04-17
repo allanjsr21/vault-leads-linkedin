@@ -523,10 +523,10 @@ def search_by_keywords(
                     break
                 _human_delay()
 
-        # ── Google Custom Search (até 3 páginas de 10) ──
+        # ── Google Custom Search (até MAX_PAGES_PER_KEYWORD páginas) ──
         if has_google:
             google_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
-            for page in range(3):
+            for page in range(MAX_PAGES_PER_KEYWORD):
                 if len(leads) >= max_results:
                     break
                 start = page * 10 + 1
@@ -556,12 +556,12 @@ def search_by_keywords(
                     break
                 _human_delay()
 
-        # ── Serper.dev — Google Search (até 3 páginas de 10) ──
+        # ── Serper.dev — Google Search (até MAX_PAGES_PER_KEYWORD páginas) ──
         if has_serper:
             serper_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
             if exclusions:
                 serper_query += f" {exclusions}"
-            for page in range(1, 4):
+            for page in range(1, MAX_PAGES_PER_KEYWORD + 1):
                 if len(leads) >= max_results:
                     break
                 log.info(f"[serper] '{keyword}' p{page}")
@@ -590,12 +590,12 @@ def search_by_keywords(
                     break
                 _human_delay()
 
-        # ── Bing Web Search (até 2 páginas de 50) ──
+        # ── Bing Web Search (até MAX_PAGES_PER_KEYWORD páginas) ──
         if has_bing:
             bing_query = f"site:linkedin.com/in {keyword} {config.LOCATION_FILTER}"
             if exclusions:
                 bing_query += f" {exclusions}"
-            for page in range(2):
+            for page in range(MAX_PAGES_PER_KEYWORD):
                 if len(leads) >= max_results:
                     break
                 offset = page * 50
