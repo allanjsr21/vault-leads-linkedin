@@ -167,6 +167,12 @@ def _voyager_search(
             log.warning("[voyager] Rate limit atingido. Aguardando 60s...")
             time.sleep(60)
             return None
+        if resp.status_code == 404:
+            log.warning(
+                "[voyager] HTTP 404 — conta muito nova ou sem acesso ao Voyager Search. "
+                "Aguarde 24-48h, faça posts/conexões/curtidas na conta e tente novamente."
+            )
+            return None
         if resp.status_code != 200:
             log.warning(f"[voyager] HTTP {resp.status_code}: {resp.text[:300]}")
             return None
