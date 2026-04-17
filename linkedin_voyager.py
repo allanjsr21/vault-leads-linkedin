@@ -100,9 +100,18 @@ HIGH_SENIORITY_SEARCHES = [
 ]
 
 
+def _read_secret(key: str) -> str:
+    """Lê direto do Streamlit secrets (bypassa cache do módulo config)."""
+    try:
+        import streamlit as st
+        return st.secrets.get(key, "") or ""
+    except Exception:
+        return getattr(config, key, "") or ""
+
+
 def _get_headers() -> dict:
-    li_at = getattr(config, "LINKEDIN_LI_AT", "")
-    jsessionid = getattr(config, "LINKEDIN_JSESSIONID", "")
+    li_at = _read_secret("LINKEDIN_LI_AT")
+    jsessionid = _read_secret("LINKEDIN_JSESSIONID")
     csrf = jsessionid.strip('"').strip("'")
     return {
         "Cookie": f'li_at={li_at}; JSESSIONID="{csrf}"',
@@ -130,8 +139,10 @@ def _voyager_search(
     Faz uma busca no Voyager API com filtros opcionais de indústria e senioridade.
     Retorna lista de perfis ou None em caso de erro/auth.
     """
-    li_at = getattr(config, "LINKEDIN_LI_AT", "")
+    li_at = _read_secret("LINKEDIN_LI_AT")
+    _last_response_debug["li_at_ok"] = bool(li_at)
     if not li_at:
+        _last_response_debug.update({"status": "NO_LI_AT", "keys": [], "raw": "li_at vazio"})
         return None
 
     # Monta filtros dinamicamente
@@ -298,7 +309,7 @@ def _get_similar_profiles(vanity: str) -> list:
     Busca perfis similares a um vanity URL via 'People Also Viewed'.
     Retorna lista de dicts ou [] em caso de erro.
     """
-    li_at = getattr(config, "LINKEDIN_LI_AT", "")
+    li_at = _read_secret("LINKEDIN_LI_AT")
     if not li_at:
         return []
 
@@ -359,7 +370,7 @@ def search_linkedin_direct(max_results: int = 100, callback=None) -> list:
       3. Filtro por senioridade alta + bitcoin
       4. Seed: perfis similares a bitcoiners conhecidos
     """
-    if not getattr(config, "LINKEDIN_LI_AT", ""):
+    if not _read_secret("LINKEDIN_LI_AT"):
         log.warning("[voyager] LINKEDIN_LI_AT não configurado — pulando busca direta.")
         return []
 
