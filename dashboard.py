@@ -909,16 +909,20 @@ if btn_collect:
             all_leads = keyword_leads + engagement_leads + event_leads
 
             # ── Filtro inteligente via Gemini (se configurado) ──
-            if getattr(_cfg, "GEMINI_API_KEY", ""):
-                add_log(f"Filtrando {len(all_leads)} leads via Gemini IA...")
+            _GEMINI_CAP = 40  # máx leads para enviar ao Gemini (4.2s/lead = 168s)
+            if getattr(_cfg, "GEMINI_API_KEY", "") and all_leads:
+                gemini_batch = all_leads[:_GEMINI_CAP]
+                rest_batch   = all_leads[_GEMINI_CAP:]
+                add_log(f"Filtrando {len(gemini_batch)} leads via Gemini IA (cap={_GEMINI_CAP})...")
                 from gemini_filter import qualify_leads_batch
-                all_leads, rejected = qualify_leads_batch(
-                    all_leads,
+                scored_leads, rejected = qualify_leads_batch(
+                    gemini_batch,
                     callback=lambda i, t, name, r: add_log(
-                        f"  [{i}/{t}] {name}: {'ACEITO' if r is not False else 'REJEITADO'}"
-                    ) if (i % 5 == 0 or r is False) else None,
+                        f"  [{i}/{t}] {name}: {'REJEITADO' if isinstance(r, int) and r < 6 else 'ACEITO'}"
+                    ) if (i % 10 == 0 or (isinstance(r, int) and r < 6)) else None,
                 )
-                add_log(f"Gemini: {len(all_leads)} aceitos, {rejected} rejeitados")
+                all_leads = scored_leads + rest_batch
+                add_log(f"Gemini: {len(scored_leads)} scored, {rejected} rejeitados, {len(rest_batch)} sem score")
             else:
                 add_log("Gemini não configurado — sem filtro IA")
 
@@ -974,16 +978,20 @@ if btn_collect_voyager:
                 add_log(f"{len(voyager_leads)} perfis coletados via Voyager")
 
                 # Filtro inteligente via Gemini (se configurado)
+                _GEMINI_CAP = 40
                 if getattr(_cfg, "GEMINI_API_KEY", "") and voyager_leads:
-                    add_log(f"Filtrando {len(voyager_leads)} leads via Gemini IA...")
+                    gemini_batch = voyager_leads[:_GEMINI_CAP]
+                    rest_batch   = voyager_leads[_GEMINI_CAP:]
+                    add_log(f"Filtrando {len(gemini_batch)} leads via Gemini IA...")
                     from gemini_filter import qualify_leads_batch
-                    voyager_leads, rejected = qualify_leads_batch(
-                        voyager_leads,
+                    scored_leads, rejected = qualify_leads_batch(
+                        gemini_batch,
                         callback=lambda i, t, name, r: add_log(
-                            f"  [{i}/{t}] {name}: {'ACEITO' if r is not False else 'REJEITADO'}"
-                        ) if (i % 5 == 0 or r is False) else None,
+                            f"  [{i}/{t}] {name}: {'REJEITADO' if isinstance(r, int) and r < 6 else 'ACEITO'}"
+                        ) if (i % 10 == 0 or (isinstance(r, int) and r < 6)) else None,
                     )
-                    add_log(f"Gemini: {len(voyager_leads)} aceitos, {rejected} rejeitados")
+                    voyager_leads = scored_leads + rest_batch
+                    add_log(f"Gemini: {len(scored_leads)} scored, {rejected} rejeitados")
 
                 added, dupes = add_leads(voyager_leads)
                 add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
