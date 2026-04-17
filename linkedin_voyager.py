@@ -13,6 +13,9 @@ import config
 
 log = logging.getLogger(__name__)
 
+# Armazena debug da última resposta (acessível pelo dashboard)
+_last_response_debug: dict = {}
+
 VOYAGER_SEARCH_URL = "https://www.linkedin.com/voyager/api/search/hits"
 BRAZIL_GEO_URN = "105490917"  # URN do Brasil no LinkedIn
 
@@ -179,12 +182,13 @@ def _voyager_search(
 
         data = resp.json()
 
-        # Debug: logar estrutura completa para diagnóstico
+        # Debug: guardar estrutura da resposta para diagnóstico no dashboard
         top_keys = list(data.keys()) if isinstance(data, dict) else []
-        log.info(f"[voyager] resposta keys={top_keys}")
-        # Log primeiros 1500 chars da resposta bruta para diagnóstico
-        raw_preview = resp.text[:1500]
-        log.info(f"[voyager] raw preview: {raw_preview}")
+        raw_preview = resp.text[:800]
+        _last_response_debug["keys"]    = top_keys
+        _last_response_debug["raw"]     = raw_preview
+        _last_response_debug["status"]  = resp.status_code
+        log.info(f"[voyager] resposta keys={top_keys} raw={raw_preview[:200]}")
 
         results = []
 
@@ -406,6 +410,18 @@ def search_linkedin_direct(max_results: int = 100, callback=None) -> list:
     log.info("[voyager] Estratégia 1: keywords diretas")
     kw_list = list(TOPIC_KEYWORDS)
     random.shuffle(kw_list)
+
+    # Fazer uma busca de diagnóstico e logar a resposta bruta via callback
+    _diag = _voyager_search(kw_list[0], start=0)
+    if callback:
+        dbg = _last_response_debug
+        callback(0, max_results,
+                 f"[DEBUG Voyager] status={dbg.get('status')} keys={dbg.get('keys')} "
+                 f"raw={str(dbg.get('raw',''))[:300]}")
+    if _diag is None:
+        log.error("[voyager] Diagnóstico: auth error")
+        return leads_raw
+
     for kw in kw_list:
         if len(leads_raw) >= max_results:
             break
