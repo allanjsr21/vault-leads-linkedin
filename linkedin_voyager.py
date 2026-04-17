@@ -139,11 +139,12 @@ def _voyager_search(
     Faz uma busca no Voyager API com filtros opcionais de indústria e senioridade.
     Retorna lista de perfis ou None em caso de erro/auth.
     """
-    li_at = _read_secret("LINKEDIN_LI_AT")
-    _last_response_debug["li_at_ok"] = bool(li_at)
-    if not li_at:
-        _last_response_debug.update({"status": "NO_LI_AT", "keys": [], "raw": "li_at vazio"})
-        return None
+    # Registrar credenciais usadas no debug (antes de qualquer request)
+    _dbg_li_at = _read_secret("LINKEDIN_LI_AT")
+    _last_response_debug["li_at_len"] = len(_dbg_li_at)
+    _last_response_debug["status"]    = "PENDING"
+    _last_response_debug["keys"]      = []
+    _last_response_debug["raw"]       = ""
 
     # Monta filtros dinamicamente
     filters = [f"currentRegion->{BRAZIL_GEO_URN}"]
@@ -427,8 +428,9 @@ def search_linkedin_direct(max_results: int = 100, callback=None) -> list:
     if callback:
         dbg = _last_response_debug
         callback(0, max_results,
-                 f"[DEBUG Voyager] status={dbg.get('status')} keys={dbg.get('keys')} "
-                 f"raw={str(dbg.get('raw',''))[:300]}")
+                 f"[DEBUG Voyager] li_at_len={dbg.get('li_at_len')} "
+                 f"status={dbg.get('status')} keys={dbg.get('keys')} "
+                 f"raw={str(dbg.get('raw',''))[:400]}")
     if _diag is None:
         log.error("[voyager] Diagnóstico: auth error")
         return leads_raw
