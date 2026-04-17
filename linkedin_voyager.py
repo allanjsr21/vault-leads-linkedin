@@ -178,20 +178,81 @@ def _voyager_search(
             return None
 
         data = resp.json()
-        elements = data.get("elements", [])
+
+        # Debug: logar estrutura completa para diagnóstico
+        top_keys = list(data.keys()) if isinstance(data, dict) else []
+        log.info(f"[voyager] resposta keys={top_keys}")
+        # Log primeiros 1500 chars da resposta bruta para diagnóstico
+        raw_preview = resp.text[:1500]
+        log.info(f"[voyager] raw preview: {raw_preview}")
+
         results = []
+
+        # ── Formato 1: {"elements": [...]} — resposta direta ─────────────────
+        elements = data.get("elements", [])
+
+        # ── Formato 2: {"data": {"elements": [...]}} — wrapper aninhado ──────
+        if not elements and isinstance(data.get("data"), dict):
+            elements = data["data"].get("elements", [])
+
+        log.info(f"[voyager] elements encontrados: {len(elements)}")
+
+        # ── Formato 3: {"included": [...]} — JSON normalizado (mais comum) ───
+        # Neste formato, "elements" tem apenas referências e os perfis reais
+        # ficam em "included" com $type contendo "miniProfile"
+        included = data.get("included", [])
+        if not elements and included:
+            log.info(f"[voyager] Tentando formato 'included' ({len(included)} itens)")
+            for item in included:
+                item_type = str(item.get("$type", "") or item.get("entityUrn", ""))
+                # Aceitar qualquer item que tenha publicIdentifier (miniProfile)
+                vanity = item.get("publicIdentifier", "").strip()
+                if not vanity:
+                    continue
+                first    = item.get("firstName", "").strip()
+                last     = item.get("lastName", "").strip()
+                name     = f"{first} {last}".strip()
+                headline = item.get("occupation", "").strip()
+                location = item.get("geoLocationName", "") or item.get("locationName", "")
+                location = location.strip() if location else ""
+                if name and vanity:
+                    results.append({
+                        "name":     name,
+                        "vanity":   vanity,
+                        "headline": headline,
+                        "location": location,
+                        "url":      f"https://www.linkedin.com/in/{vanity}",
+                    })
+            log.info(f"[voyager] formato included → {len(results)} perfis")
+            return results
+
+        if elements:
+            first_el_keys = list(elements[0].keys()) if elements else []
+            log.info(f"[voyager] primeiro elemento keys={first_el_keys}")
 
         for el in elements:
             hit_info = el.get("hitInfo", {})
+            # Tentar múltiplos formatos de resposta do Voyager
             profile_data = (
                 hit_info.get("com.linkedin.voyager.search.SearchProfile")
                 or hit_info.get("com.linkedin.voyager.search.BlendedSearchProfile")
+                or hit_info.get("com.linkedin.voyager.search.WebSearchHit")
                 or {}
             )
-            if not profile_data:
-                continue
+            # Formato alternativo: perfil direto no elemento (sem hitInfo)
+            if not profile_data and el.get("publicIdentifier"):
+                profile_data = el
 
-            mini = profile_data.get("miniProfile", {})
+            if not profile_data:
+                # Último recurso: procurar publicIdentifier em qualquer lugar do elemento
+                pub_id = el.get("publicIdentifier", "")
+                if pub_id:
+                    profile_data = el
+                else:
+                    continue
+
+            # Suporte ao formato legado (miniProfile aninhado)
+            mini = profile_data.get("miniProfile") or profile_data
             if not mini:
                 continue
 
@@ -200,7 +261,11 @@ def _voyager_search(
             name     = f"{first} {last}".strip()
             vanity   = mini.get("publicIdentifier", "").strip()
             headline = mini.get("occupation", "").strip()
-            location = profile_data.get("locationName", "").strip()
+            location = (
+                profile_data.get("locationName", "")
+                or profile_data.get("geoLocationName", "")
+                or mini.get("geoLocationName", "")
+            ).strip()
 
             if not name or not vanity:
                 continue

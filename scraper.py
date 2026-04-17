@@ -425,7 +425,7 @@ def _serper_search(query: str, page: int = 1) -> Optional[list[dict]]:
 
 def _human_delay():
     """Delay aleatório entre requests para simular comportamento humano."""
-    time.sleep(random.uniform(1.5, 3.5))
+    time.sleep(random.uniform(0.3, 0.8))
 
 
 # ── Busca por keywords (Brave + Google) ─────────────────────────────────────────
@@ -707,6 +707,7 @@ def search_by_post_engagement(
         'site:linkedin.com/in "cold wallet" bitcoin Brasil',
     ]
     random.shuffle(content_queries)
+    content_queries = content_queries[:20]  # cap para acelerar run
 
     for query in content_queries:
         if len(leads) >= max_results:
@@ -853,6 +854,7 @@ def search_by_events(max_results: int = 30) -> list[Lead]:
         'site:linkedin.com/in "meetup" "cripto" Brasil',
     ]
     random.shuffle(event_queries)
+    event_queries = event_queries[:10]  # cap para acelerar run
 
     for query in event_queries:
         if len(leads) >= max_results:

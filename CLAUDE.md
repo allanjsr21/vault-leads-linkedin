@@ -11,7 +11,7 @@ Brasileiros que **usam** Bitcoin no dia a dia, com renda/patrimônio alto:
 **NÃO é** o público de assessores de investimento / AAI / escritórios de agentes autônomos. O gestor mandou um plano focado em AAIs, mas o usuário decidiu usar a **metodologia** dele (Vibe Prospecting → Icypeas → LinkedIn DM → Notion CRM) aplicada ao **público bitcoiner existente**.
 
 ## Stack
-- **Dashboard**: `dashboard.py` (Streamlit Cloud — https://share.streamlit.io app `vault-leads-linkedin`)
+- **Dashboard**: `dashboard.py` (Streamlit Cloud — https://vault-leads-linkedin-y2e7kmaamq8mrpyhyrq5fg.streamlit.app/)
 - **Scraper Brave/Serper/Google**: `scraper.py`
 - **Scraper LinkedIn direto**: `linkedin_voyager.py` (4 estratégias: keywords, indústria, senioridade, perfis similares)
 - **Filtro Gemini**: `gemini_filter.py`
