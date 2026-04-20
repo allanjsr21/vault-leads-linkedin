@@ -212,6 +212,14 @@ def _parse_result(item: dict, source: str, keyword: str = "") -> Optional[Lead]:
     # Se tem caracteres estranhos para nomes (!, ?, :, números no início)
     if re.search(r"[!?:]|^\d", name):
         return None
+    # Rejeitar nomes genéricos / claramente não-pessoas
+    _BAD_NAMES = {
+        "atividades", "activities", "undefined", "null", "none",
+        "perfil", "profile", "linkedin", "user", "member", "page",
+        "empresa", "company", "conta", "account",
+    }
+    if name.lower().strip() in _BAD_NAMES or len(name) < 4:
+        return None
 
     # ── Cargo e empresa ───────────────────────────────────────────────────────
     title_parts = re.split(r"\s*[-–|]\s*", title)

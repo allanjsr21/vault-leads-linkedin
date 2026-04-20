@@ -1200,18 +1200,15 @@ if df_table.empty:
     </div>
     """, unsafe_allow_html=True)
 else:
-    df_display = df_table.copy()
-
     # Ordena por score decrescente
-    if "score" in df_display.columns:
-        df_display = df_display.sort_values("score", ascending=False)
+    df_sorted = df_table.copy()
+    if "score" in df_sorted.columns:
+        df_sorted = df_sorted.sort_values("score", ascending=False)
 
-    df_display["status"] = df_display["status"].apply(lambda s: f"{status_color(s)} {s}")
-
-    # Emoji de prioridade na coluna
+    # Emoji de prioridade
     prio_emoji = {"Hot": "🔥", "Warm": "🟡", "Cold": "❄️"}
-    if "prioridade" in df_display.columns:
-        df_display["prioridade"] = df_display.apply(
+    if "prioridade" in df_sorted.columns:
+        df_sorted["prioridade"] = df_sorted.apply(
             lambda r: f"{prio_emoji.get(r['prioridade'], '')} {r['prioridade']}  {r.get('score', '')}pts",
             axis=1,
         )
@@ -1225,33 +1222,77 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    cols = ["prioridade", "name", "job_title", "company", "location", "email", "ai_score", "status", "linkedin_url"]
-    cols = [c for c in cols if c in df_display.columns]
-    # Remove colunas vazias
-    cols = [c for c in cols if not df_display[c].astype(str).str.strip().eq("").all()]
+    edit_cols = ["prioridade", "name", "job_title", "company", "location", "email", "status", "linkedin_url"]
+    edit_cols = [c for c in edit_cols if c in df_sorted.columns]
+    edit_cols = [c for c in edit_cols if not df_sorted[c].astype(str).str.strip().eq("").all()]
 
-    st.dataframe(
-        df_display[cols],
+    df_edit = df_sorted[edit_cols].reset_index(drop=True)
+
+    edited_df = st.data_editor(
+        df_edit,
         use_container_width=True,
-        height=420,
+        height=440,
+        key="leads_editor",
         column_config={
-            "prioridade":   st.column_config.TextColumn("Prioridade"),
-            "name":         st.column_config.TextColumn("Nome"),
-            "job_title":    st.column_config.TextColumn("Cargo"),
-            "company":      st.column_config.TextColumn("Empresa"),
-            "location":     st.column_config.TextColumn("Localização"),
-            "email":        st.column_config.TextColumn("Email"),
-            "ai_score":     st.column_config.TextColumn("IA Análise"),
-            "status":       st.column_config.TextColumn("Status"),
+            "prioridade":   st.column_config.TextColumn("Prioridade", disabled=True),
+            "name":         st.column_config.TextColumn("Nome",        disabled=True),
+            "job_title":    st.column_config.TextColumn("Cargo",       disabled=True),
+            "company":      st.column_config.TextColumn("Empresa",     disabled=True),
+            "location":     st.column_config.TextColumn("Localização", disabled=True),
+            "email":        st.column_config.TextColumn("Email",       disabled=True),
+            "status": st.column_config.SelectboxColumn(
+                "Status",
+                options=["pending", "approved", "skipped", "sent", "failed"],
+                required=True,
+            ),
             "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
         },
     )
-    st.markdown(f"""
-    <div class="lead-count">
-        <i class="fa-solid fa-circle" style="font-size:4px; color:rgba(212,175,55,0.3);"></i>
-        {len(df_table)} leads exibidos &nbsp;·&nbsp; Google Sheets sync
-    </div>
-    """, unsafe_allow_html=True)
+
+    # Auto-salvar mudanças de status
+    if "status" in edited_df.columns and "status" in df_edit.columns:
+        changed_mask = edited_df["status"] != df_edit["status"]
+        if changed_mask.any():
+            for pos in changed_mask[changed_mask].index:
+                url        = df_edit.iloc[pos]["linkedin_url"]
+                new_status = edited_df.iloc[pos]["status"]
+                mask = st.session_state.session_df["linkedin_url"] == url
+                st.session_state.session_df.loc[mask, "status"] = new_status
+            # Persistir no CSV
+            try:
+                from leads_manager import load_leads, _csv_save_leads
+                existing = load_leads()
+                for pos in changed_mask[changed_mask].index:
+                    url = df_edit.iloc[pos]["linkedin_url"]
+                    new_status = edited_df.iloc[pos]["status"]
+                    from models import _normalize_url
+                    key = _normalize_url(url)
+                    if key in existing:
+                        existing[key].status = new_status
+                _csv_save_leads(existing)
+                add_log(f"Status salvo: {changed_mask.sum()} leads atualizados")
+            except Exception as _e:
+                add_log(f"Status atualizado na sessão (CSV: {_e})")
+            st.rerun()
+
+    # Linha inferior: contagem + exportar
+    col_count, col_dl = st.columns([3, 1])
+    with col_count:
+        st.markdown(f"""
+        <div class="lead-count">
+            <i class="fa-solid fa-circle" style="font-size:4px; color:rgba(212,175,55,0.3);"></i>
+            {len(df_table)} leads exibidos
+        </div>
+        """, unsafe_allow_html=True)
+    with col_dl:
+        csv_bytes = df_sorted[edit_cols].to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Exportar CSV",
+            data=csv_bytes,
+            file_name=f"leads_vault_{time.strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
 # ── Log de atividade ───────────────────────────────────────────────────────────
 st.markdown("""

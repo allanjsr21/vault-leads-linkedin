@@ -152,6 +152,24 @@ def hunter_find_email(
 
 # ── Enriquecimento principal ──────────────────────────────────────────────────
 
+def _extract_company_from_bio(text: str) -> str:
+    """Extrai empresa do headline/bio quando o campo company está vazio."""
+    if not text:
+        return ""
+    for sep in [" na ", " at ", " em ", " @ ", " | ", " - "]:
+        idx = text.lower().find(sep.lower())
+        if idx != -1:
+            candidate = text[idx + len(sep):].strip()
+            candidate = re.split(r"[|·•\n,]", candidate)[0].strip()
+            candidate = re.sub(
+                r"\s+(Ltda\.?|LTDA|S\.A\.|SA|ME|EIRELI|Inc\.?|LLC|Corp\.?).*",
+                "", candidate, flags=re.IGNORECASE,
+            ).strip()
+            if 3 <= len(candidate) <= 60:
+                return candidate
+    return ""
+
+
 def enrich_lead(lead) -> dict:
     """
     Tenta enriquecer um lead com email.
@@ -167,11 +185,20 @@ def enrich_lead(lead) -> dict:
     first_name = name_parts[0]
     last_name = name_parts[-1]
 
+    # Se company vazio, extrair do bio ou job_title (ex: "CEO na Empresa X")
+    company = (lead.company or "").strip()
+    if not company:
+        company = _extract_company_from_bio(getattr(lead, "bio", "") or "")
+    if not company:
+        company = _extract_company_from_bio(getattr(lead, "job_title", "") or "")
+    if company:
+        log.info(f"[enricher] Empresa extraída do bio: {company}")
+
     # Tentar Icypeas primeiro (melhor cobertura BR)
     icypeas_result = icypeas_find_email(
         first_name=first_name,
         last_name=last_name,
-        company=lead.company or "",
+        company=company,
     )
     if icypeas_result:
         result["email"] = icypeas_result["email"]
@@ -184,7 +211,7 @@ def enrich_lead(lead) -> dict:
     hunter_result = hunter_find_email(
         first_name=first_name,
         last_name=last_name,
-        company=lead.company or "",
+        company=company,
     )
     if hunter_result:
         result["email"] = hunter_result["email"]
