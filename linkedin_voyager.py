@@ -172,21 +172,22 @@ def _voyager_search(
             params=params,
             timeout=20,
         )
+
+        # Capturar status e corpo ANTES de qualquer parse
+        _last_response_debug["status"]   = resp.status_code
+        _last_response_debug["raw"]      = resp.text[:800]
+        _last_response_debug["content_type"] = resp.headers.get("Content-Type", "")
+        log.info(f"[voyager] HTTP {resp.status_code} ct={resp.headers.get('Content-Type','')} raw={resp.text[:300]}")
+
         if resp.status_code == 401:
-            log.warning(
-                "[voyager] Cookies expirados. Atualize LINKEDIN_LI_AT e "
-                "LINKEDIN_JSESSIONID em Application > Cookies no DevTools (F12)."
-            )
+            log.warning("[voyager] Cookies expirados.")
             return None
         if resp.status_code == 429:
             log.warning("[voyager] Rate limit atingido. Aguardando 60s...")
             time.sleep(60)
             return None
         if resp.status_code == 404:
-            log.warning(
-                "[voyager] HTTP 404 — conta muito nova ou sem acesso ao Voyager Search. "
-                "Aguarde 24-48h, faça posts/conexões/curtidas na conta e tente novamente."
-            )
+            log.warning("[voyager] HTTP 404 — conta nova ou sem acesso ao Voyager Search.")
             return None
         if resp.status_code != 200:
             log.warning(f"[voyager] HTTP {resp.status_code}: {resp.text[:300]}")
@@ -194,13 +195,10 @@ def _voyager_search(
 
         data = resp.json()
 
-        # Debug: guardar estrutura da resposta para diagnóstico no dashboard
+        # Debug: guardar estrutura da resposta
         top_keys = list(data.keys()) if isinstance(data, dict) else []
-        raw_preview = resp.text[:800]
-        _last_response_debug["keys"]    = top_keys
-        _last_response_debug["raw"]     = raw_preview
-        _last_response_debug["status"]  = resp.status_code
-        log.info(f"[voyager] resposta keys={top_keys} raw={raw_preview[:200]}")
+        _last_response_debug["keys"] = top_keys
+        log.info(f"[voyager] JSON keys={top_keys}")
 
         results = []
 
@@ -301,7 +299,9 @@ def _voyager_search(
         return results
 
     except Exception as e:
-        log.error(f"[voyager] Erro: {e}")
+        _last_response_debug["status"] = f"EXCEPTION:{type(e).__name__}"
+        _last_response_debug["raw"]    = str(e)[:400]
+        log.error(f"[voyager] Erro: {type(e).__name__}: {e}")
         return None
 
 
@@ -429,8 +429,8 @@ def search_linkedin_direct(max_results: int = 100, callback=None) -> list:
         dbg = _last_response_debug
         callback(0, max_results,
                  f"[DEBUG Voyager] li_at_len={dbg.get('li_at_len')} "
-                 f"status={dbg.get('status')} keys={dbg.get('keys')} "
-                 f"raw={str(dbg.get('raw',''))[:400]}")
+                 f"status={dbg.get('status')} ct={dbg.get('content_type','')} "
+                 f"keys={dbg.get('keys')} raw={str(dbg.get('raw',''))[:300]}")
     if _diag is None:
         log.error("[voyager] Diagnóstico: auth error")
         return leads_raw
