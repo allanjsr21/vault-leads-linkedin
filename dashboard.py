@@ -663,22 +663,11 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     btn_collect     = st.button("Coletar Leads",      icon=":material/search:",        use_container_width=True)
-    # Mostrar botão LinkedIn Direto apenas se cookies estiverem configurados
-    _has_voyager = bool(getattr(config, "LINKEDIN_LI_AT", ""))
-    if _has_voyager:
-        st.markdown(
-            '<span style="display:inline-block; background:rgba(10,102,194,0.18); '
-            'border:1px solid rgba(10,102,194,0.40); border-radius:100px; '
-            'padding:2px 10px; font-size:0.62rem; color:#60a5fa; font-weight:600; '
-            'letter-spacing:0.05em; margin-bottom:4px;">🔵 LinkedIn Direto ativo</span>',
-            unsafe_allow_html=True,
-        )
     btn_collect_voyager = st.button(
-        "LinkedIn Direto",
-        icon=":material/linked_services:",
+        "Coletar Mais",
+        icon=":material/refresh:",
         use_container_width=True,
-        disabled=not _has_voyager,
-        help="Busca direto no LinkedIn via Voyager API. Requer cookies li_at e JSESSIONID.",
+        help="Segunda rodada de busca com keywords diferentes para aumentar o volume de leads.",
     )
     btn_ai_score    = st.button("Score via IA",        icon=":material/psychology:",    use_container_width=True)
     btn_enrich      = st.button("Enriquecer Emails",   icon=":material/alternate_email:", use_container_width=True)
@@ -948,62 +937,57 @@ if btn_collect:
 
 if btn_collect_voyager:
     st.session_state.running = True
-    add_log("Iniciando coleta via LinkedIn Direto (Voyager API)...")
+    add_log("Iniciando segunda rodada de coleta (keywords alternativas)...")
 
-    with st.spinner("Buscando perfis direto no LinkedIn..."):
+    with st.spinner("Coletando mais leads com keywords alternativas..."):
         try:
             import config as _cfg
+            from scraper import search_by_keywords, search_by_post_engagement
+            from leads_manager import add_leads
 
-            if not getattr(_cfg, "LINKEDIN_LI_AT", ""):
-                st.error(
-                    "LINKEDIN_LI_AT não configurado. "
-                    "Abra o LinkedIn no navegador, pressione F12 → Application → "
-                    "Cookies → linkedin.com, copie li_at e JSESSIONID e adicione "
-                    "nos Streamlit secrets."
+            # Segunda rodada: shuffle garante keywords diferentes da primeira rodada
+            import random
+            alt_keywords = list(_cfg.SEARCH_KEYWORDS)
+            random.shuffle(alt_keywords)
+            alt_keywords = alt_keywords[:40]
+
+            add_log(f"Rodada 2: {len(alt_keywords)} keywords alternativas")
+            more_leads = search_by_keywords(keywords=alt_keywords)
+            add_log(f"{len(more_leads)} novos perfis encontrados")
+
+            more_posts = search_by_post_engagement()
+            add_log(f"{len(more_posts)} autores de conteúdo adicionais")
+
+            all_more = more_leads + more_posts
+
+            _GEMINI_CAP = 40
+            if getattr(_cfg, "GEMINI_API_KEY", "") and all_more:
+                gemini_batch = all_more[:_GEMINI_CAP]
+                rest_batch   = all_more[_GEMINI_CAP:]
+                add_log(f"Filtrando {len(gemini_batch)} leads via Gemini...")
+                from gemini_filter import qualify_leads_batch
+                scored_leads, rejected = qualify_leads_batch(
+                    gemini_batch,
+                    callback=lambda i, t, name, r: add_log(
+                        f"  [{i}/{t}] {name}: REJEITADO"
+                    ) if (isinstance(r, int) and r < 6) else None,
                 )
-            else:
-                from scraper import search_linkedin_voyager
-                from leads_manager import add_leads
+                all_more = scored_leads + rest_batch
+                add_log(f"Gemini: {len(scored_leads)} scored, {rejected} rejeitados")
 
-                add_log(f"li_at configurado: OK")
-                add_log(f"JSESSIONID configurado: {'OK' if getattr(_cfg, 'LINKEDIN_JSESSIONID', '') else 'VAZIO (opcional)'}")
+            added, dupes = add_leads(all_more)
+            add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
 
-                def _voyager_cb(done, total, kw):
-                    add_log(f"  [{done}/{total}] keyword: {kw}")
-
-                voyager_leads = search_linkedin_voyager(
-                    max_results=getattr(_cfg, "MAX_LEADS_PER_RUN", 100),
-                    callback=_voyager_cb,
-                )
-                add_log(f"{len(voyager_leads)} perfis coletados via Voyager")
-
-                # Filtro inteligente via Gemini (se configurado)
-                _GEMINI_CAP = 40
-                if getattr(_cfg, "GEMINI_API_KEY", "") and voyager_leads:
-                    gemini_batch = voyager_leads[:_GEMINI_CAP]
-                    rest_batch   = voyager_leads[_GEMINI_CAP:]
-                    add_log(f"Filtrando {len(gemini_batch)} leads via Gemini IA...")
-                    from gemini_filter import qualify_leads_batch
-                    scored_leads, rejected = qualify_leads_batch(
-                        gemini_batch,
-                        callback=lambda i, t, name, r: add_log(
-                            f"  [{i}/{t}] {name}: {'REJEITADO' if isinstance(r, int) and r < 6 else 'ACEITO'}"
-                        ) if (i % 10 == 0 or (isinstance(r, int) and r < 6)) else None,
-                    )
-                    voyager_leads = scored_leads + rest_batch
-                    add_log(f"Gemini: {len(scored_leads)} scored, {rejected} rejeitados")
-
-                added, dupes = add_leads(voyager_leads)
-                add_log(f"{added} novos leads salvos ({dupes} duplicatas ignoradas)")
-
-                from dataclasses import asdict
-                if voyager_leads:
-                    st.session_state.session_df = pd.DataFrame([asdict(l) for l in voyager_leads])
+            from dataclasses import asdict
+            existing_df = st.session_state.session_df
+            if all_more:
+                new_df = pd.DataFrame([asdict(l) for l in all_more])
+                if not existing_df.empty:
+                    st.session_state.session_df = pd.concat([existing_df, new_df], ignore_index=True).drop_duplicates(subset=["linkedin_url"])
                 else:
-                    st.session_state.session_df = _EMPTY_DF.copy()
+                    st.session_state.session_df = new_df
 
-                add_log("Coleta via LinkedIn Direto concluída!")
-                st.success(f"LinkedIn Direto: {added} leads novos coletados.")
+            st.success(f"Rodada 2 concluída! {added} leads novos adicionados.")
 
         except Exception as e:
             import traceback
