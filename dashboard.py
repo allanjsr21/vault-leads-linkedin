@@ -868,15 +868,13 @@ st.markdown("<div style='margin:1.2rem 0;'></div>", unsafe_allow_html=True)
 # ── Funil de Conversão ─────────────────────────────────────────────────────────
 if total > 0:
     with st.expander("📊 Funil de Conversão", expanded=False):
+        _approved_total = len(df[df["status"].isin(["approved", "sent"])]) if total else 0
+        _funnel_stages  = ["Coletados", "Aprovados", "DM Enviada", "Responderam", "Agendados"]
+        _funnel_values  = [total, _approved_total, sent, responded, scheduled]
         try:
             import plotly.graph_objects as go
-            _approved_total = len(df[df["status"].isin(["approved", "sent"])]) if total else 0
-            _responded      = responded
-            _scheduled      = scheduled
-            funnel_stages  = ["Coletados", "Aprovados", "DM Enviada", "Responderam", "Agendados"]
-            funnel_values  = [total, _approved_total, sent, _responded, _scheduled]
             fig = go.Figure(go.Funnel(
-                y=funnel_stages, x=funnel_values,
+                y=_funnel_stages, x=_funnel_values,
                 textinfo="value+percent initial",
                 marker={"color": ["#d4af37", "#f59e0b", "#60a5fa", "#34d399", "#fb923c"]},
                 connector={"line": {"color": "rgba(255,255,255,0.06)", "width": 1}},
@@ -889,10 +887,7 @@ if total > 0:
             st.plotly_chart(fig, use_container_width=True)
         except ImportError:
             cols_f = st.columns(5)
-            for i, (lbl, val) in enumerate(zip(
-                ["Coletados","Aprovados","DM Enviada","Responderam","Agendados"],
-                [total, _approved_total, sent, responded, scheduled]
-            )):
+            for i, (lbl, val) in enumerate(zip(_funnel_stages, _funnel_values)):
                 with cols_f[i]:
                     pct = f"{val/total*100:.0f}%" if total else "—"
                     st.metric(lbl, val, pct)
