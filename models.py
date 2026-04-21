@@ -21,8 +21,10 @@ class Lead:
     bio: str = ""             # snippet do perfil (headline + about)
     email: str = ""           # e-mail encontrado via enrichment
     ai_score: str = ""        # score da IA (JSON com nota + reasoning)
-    source: str = ""          # "brave" | "google" | "linkedin_content"
+    source: str = ""          # "brave" | "google" | "linkedin_content" | "import"
     status: str = "pending"   # "pending" | "approved" | "sent" | "failed" | "skipped"
+    response_status: str = "" # "" | "no_reply" | "positive" | "negative" | "scheduled"
+    notes: str = ""           # anotações manuais livres
     sent_at: str = ""
     error: str = ""
     collected_at: str = field(default_factory=lambda: datetime.now(BRT).strftime("%Y-%m-%d %H:%M"))
@@ -35,7 +37,7 @@ class Lead:
 FIELDNAMES = [
     "name", "first_name", "linkedin_url", "job_title", "company",
     "location", "bio", "email", "ai_score", "source", "status",
-    "sent_at", "error", "collected_at",
+    "response_status", "notes", "sent_at", "error", "collected_at",
 ]
 
 

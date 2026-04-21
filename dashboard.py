@@ -679,6 +679,10 @@ with st.sidebar:
     btn_load_sheets = st.button("Carregar do Sheets",  icon=":material/cloud_download:", use_container_width=True)
     btn_clear       = st.button("Limpar tabela",       icon=":material/delete:",        use_container_width=True)
 
+    st.markdown("---")
+    st.markdown("""<div class="section-header"><i class="fa-solid fa-file-import"></i> Importar</div>""", unsafe_allow_html=True)
+    uploaded_csv = st.file_uploader("CSV / XLSX", type=["csv", "xlsx"], label_visibility="collapsed")
+
     st.markdown("""
     <div class="info-panel">
         <i class="fa-solid fa-circle-info"></i>
@@ -833,19 +837,21 @@ if not df.empty:
 
 total    = len(df)
 pending  = len(df[df["status"] == "pending"])       if total else 0
-approved = len(df[df["status"] == "approved"])      if total else 0
-sent     = len(df[df["status"] == "sent"])          if total else 0
-hot      = len(df[df["prioridade"] == "Hot"])       if total and "prioridade" in df.columns else 0
-emails   = len(df[df["email"].astype(str).str.strip() != ""])  if total and "email" in df.columns else 0
+approved   = len(df[df["status"] == "approved"])      if total else 0
+sent       = len(df[df["status"] == "sent"])          if total else 0
+hot        = len(df[df["prioridade"] == "Hot"])       if total and "prioridade" in df.columns else 0
+emails     = len(df[df["email"].astype(str).str.strip() != ""])  if total and "email" in df.columns else 0
+responded  = len(df[df.get("response_status", pd.Series(dtype=str)).isin(["positive", "scheduled"])]) if total and "response_status" in df.columns else 0
+scheduled  = len(df[df.get("response_status", pd.Series(dtype=str)) == "scheduled"]) if total and "response_status" in df.columns else 0
 
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 metric_data = [
-    (col1, "fa-users",        total,    "Total de Leads",     "#d4af37", "mc-gold"),
-    (col2, "fa-fire",         hot,      "Hot Leads",          "#fb923c", "mc-orange"),
-    (col3, "fa-envelope",     emails,   "Com Email",          "#a78bfa", "mc-purple"),
-    (col4, "fa-hourglass-half",pending, "Aguardando",         "#e2e8f0", "mc-silver"),
-    (col5, "fa-circle-check", approved, "Aprovados",          "#34d399", "mc-green"),
-    (col6, "fa-paper-plane",  sent,     "DMs Enviadas",       "#60a5fa", "mc-blue"),
+    (col1, "fa-users",        total,      "Total de Leads",   "#d4af37", "mc-gold"),
+    (col2, "fa-fire",         hot,        "Hot Leads",        "#fb923c", "mc-orange"),
+    (col3, "fa-envelope",     emails,     "Com Email",        "#a78bfa", "mc-purple"),
+    (col4, "fa-paper-plane",  sent,       "DMs Enviadas",     "#60a5fa", "mc-blue"),
+    (col5, "fa-reply",        responded,  "Responderam",      "#34d399", "mc-green"),
+    (col6, "fa-calendar-check", scheduled,"Agendados",        "#fb923c", "mc-orange"),
 ]
 for col, icon, value, label, color, extra_class in metric_data:
     with col:
@@ -858,6 +864,38 @@ for col, icon, value, label, color, extra_class in metric_data:
         """, unsafe_allow_html=True)
 
 st.markdown("<div style='margin:1.2rem 0;'></div>", unsafe_allow_html=True)
+
+# ── Funil de Conversão ─────────────────────────────────────────────────────────
+if total > 0:
+    with st.expander("📊 Funil de Conversão", expanded=False):
+        try:
+            import plotly.graph_objects as go
+            _approved_total = len(df[df["status"].isin(["approved", "sent"])]) if total else 0
+            _responded      = responded
+            _scheduled      = scheduled
+            funnel_stages  = ["Coletados", "Aprovados", "DM Enviada", "Responderam", "Agendados"]
+            funnel_values  = [total, _approved_total, sent, _responded, _scheduled]
+            fig = go.Figure(go.Funnel(
+                y=funnel_stages, x=funnel_values,
+                textinfo="value+percent initial",
+                marker={"color": ["#d4af37", "#f59e0b", "#60a5fa", "#34d399", "#fb923c"]},
+                connector={"line": {"color": "rgba(255,255,255,0.06)", "width": 1}},
+            ))
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font={"color": "rgba(255,255,255,0.6)", "family": "Inter"},
+                margin=dict(l=0, r=0, t=10, b=10), height=260,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except ImportError:
+            cols_f = st.columns(5)
+            for i, (lbl, val) in enumerate(zip(
+                ["Coletados","Aprovados","DM Enviada","Responderam","Agendados"],
+                [total, _approved_total, sent, responded, scheduled]
+            )):
+                with cols_f[i]:
+                    pct = f"{val/total*100:.0f}%" if total else "—"
+                    st.metric(lbl, val, pct)
 
 # ── Ações ──────────────────────────────────────────────────────────────────────
 if btn_collect:
@@ -1057,6 +1095,70 @@ if btn_clear:
         add_log(f"Sessão limpa. CSV: {_e}")
     st.rerun()
 
+# ── Importação de CSV / XLSX ───────────────────────────────────────────────────
+if uploaded_csv is not None:
+    try:
+        if uploaded_csv.name.endswith(".xlsx"):
+            import_df = pd.read_excel(uploaded_csv)
+        else:
+            import_df = pd.read_csv(uploaded_csv)
+
+        # Mapear colunas comuns para o padrão interno
+        _col_map = {
+            "nome": "name", "nome completo": "name", "full name": "name",
+            "cargo": "job_title", "título": "job_title", "title": "job_title",
+            "empresa": "company", "companhia": "company",
+            "localização": "location", "cidade": "location", "city": "location",
+            "email": "email", "e-mail": "email",
+            "linkedin": "linkedin_url", "url": "linkedin_url", "perfil": "linkedin_url",
+            "bio": "bio", "headline": "bio",
+            "notas": "notes", "observações": "notes", "notes": "notes",
+        }
+        import_df.columns = [_col_map.get(c.lower().strip(), c.lower().strip()) for c in import_df.columns]
+
+        # Criar leads a partir do CSV importado
+        from models import Lead
+        from leads_manager import add_leads
+        import_leads = []
+        for _, row in import_df.iterrows():
+            name = str(row.get("name", "")).strip()
+            url  = str(row.get("linkedin_url", "")).strip()
+            if not name or len(name) < 3:
+                continue
+            if not url:
+                url = f"https://www.linkedin.com/in/{name.lower().replace(' ', '-')}-import"
+            import_leads.append(Lead(
+                name        = name,
+                linkedin_url= url,
+                job_title   = str(row.get("job_title", "")).strip(),
+                company     = str(row.get("company", "")).strip(),
+                location    = str(row.get("location", "")).strip(),
+                email       = str(row.get("email", "")).strip(),
+                bio         = str(row.get("bio", "")).strip(),
+                notes       = str(row.get("notes", "")).strip(),
+                source      = "import",
+                status      = "pending",
+            ))
+
+        added, dupes = add_leads(import_leads)
+        add_log(f"Importação: {added} leads novos ({dupes} duplicatas ignoradas) de '{uploaded_csv.name}'")
+
+        from dataclasses import asdict
+        if import_leads:
+            new_df = pd.DataFrame([asdict(l) for l in import_leads])
+            existing = st.session_state.session_df
+            if not existing.empty:
+                st.session_state.session_df = pd.concat([existing, new_df], ignore_index=True).drop_duplicates(subset=["linkedin_url"])
+            else:
+                st.session_state.session_df = new_df
+
+        st.success(f"✅ {added} leads importados de '{uploaded_csv.name}'")
+        st.rerun()
+    except Exception as _e:
+        import traceback
+        add_log(f"ERRO importação: {_e}")
+        st.error(f"Erro ao importar: {_e}")
+
 if btn_ai_score:
     df_current = st.session_state.session_df
     if df_current.empty:
@@ -1155,7 +1257,7 @@ st.markdown("""
 df_table = st.session_state.session_df
 
 # ── Filtros ────────────────────────────────────────────────────────────────────
-col_search, col_status, col_loc, col_prio = st.columns([3, 1, 1, 1])
+col_search, col_status, col_loc, col_prio, col_fonte = st.columns([3, 1, 1, 1, 1])
 
 with col_search:
     search_text = st.text_input(
@@ -1168,16 +1270,24 @@ with col_status:
     status_filter = st.selectbox("Status", status_opts, label_visibility="collapsed")
 
 with col_loc:
+    loc_opts = ["Todas", "🏙️ São Paulo / SP", "🌎 Fora de SP"]
     if not df_table.empty and "location" in df_table.columns:
-        locs = df_table["location"].dropna().loc[lambda s: s.str.strip() != ""].unique().tolist()
-    else:
-        locs = []
-    loc_opts = ["Todas"] + sorted(locs)
+        other_locs = df_table["location"].dropna().loc[lambda s: s.str.strip() != ""].unique().tolist()
+        other_locs = [l for l in sorted(other_locs) if "são paulo" not in l.lower() and ", sp" not in l.lower()]
+        loc_opts += other_locs
     loc_filter = st.selectbox("Localização", loc_opts, label_visibility="collapsed")
 
 with col_prio:
     prio_opts = ["Todas", "Hot", "Warm", "Cold"]
     prio_filter = st.selectbox("Prioridade", prio_opts, label_visibility="collapsed")
+
+with col_fonte:
+    if not df_table.empty and "source" in df_table.columns:
+        fontes = df_table["source"].dropna().loc[lambda s: s.str.strip() != ""].unique().tolist()
+    else:
+        fontes = []
+    fonte_opts = ["Todas"] + sorted(fontes)
+    fonte_filter = st.selectbox("Fonte", fonte_opts, label_visibility="collapsed")
 
 # Aplica filtros
 if not df_table.empty:
@@ -1186,10 +1296,16 @@ if not df_table.empty:
         df_table = df_table[mask]
     if status_filter != "Todos":
         df_table = df_table[df_table["status"] == status_filter]
-    if loc_filter != "Todas":
+    if loc_filter == "🏙️ São Paulo / SP":
+        df_table = df_table[df_table["location"].str.contains("são paulo|, sp", case=False, na=False)]
+    elif loc_filter == "🌎 Fora de SP":
+        df_table = df_table[~df_table["location"].str.contains("são paulo|, sp", case=False, na=False)]
+    elif loc_filter != "Todas":
         df_table = df_table[df_table["location"] == loc_filter]
     if prio_filter != "Todas" and "prioridade" in df_table.columns:
         df_table = df_table[df_table["prioridade"] == prio_filter]
+    if fonte_filter != "Todas" and "source" in df_table.columns:
+        df_table = df_table[df_table["source"] == fonte_filter]
 
 if df_table.empty:
     st.markdown("""
@@ -1222,7 +1338,19 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    edit_cols = ["prioridade", "name", "job_title", "company", "location", "email", "status", "linkedin_url"]
+    # Preparar coluna de critérios do score (extrair "reason" do JSON ai_score)
+    if "ai_score" in df_sorted.columns:
+        import json as _json
+        def _parse_reason(v):
+            try:
+                return _json.loads(str(v)).get("reason", str(v))
+            except Exception:
+                return str(v) if str(v) not in ("nan", "") else ""
+        df_sorted = df_sorted.copy()
+        df_sorted["score_reason"] = df_sorted["ai_score"].apply(_parse_reason)
+
+    edit_cols = ["prioridade", "name", "job_title", "company", "location", "email",
+                 "score_reason", "source", "status", "response_status", "notes", "linkedin_url"]
     edit_cols = [c for c in edit_cols if c in df_sorted.columns]
     edit_cols = [c for c in edit_cols if not df_sorted[c].astype(str).str.strip().eq("").all()]
 
@@ -1231,49 +1359,66 @@ else:
     edited_df = st.data_editor(
         df_edit,
         use_container_width=True,
-        height=440,
+        height=460,
         key="leads_editor",
         column_config={
-            "prioridade":   st.column_config.TextColumn("Prioridade", disabled=True),
-            "name":         st.column_config.TextColumn("Nome",        disabled=True),
-            "job_title":    st.column_config.TextColumn("Cargo",       disabled=True),
-            "company":      st.column_config.TextColumn("Empresa",     disabled=True),
-            "location":     st.column_config.TextColumn("Localização", disabled=True),
-            "email":        st.column_config.TextColumn("Email",       disabled=True),
+            "prioridade":      st.column_config.TextColumn("Prioridade",   disabled=True),
+            "name":            st.column_config.TextColumn("Nome",         disabled=True),
+            "job_title":       st.column_config.TextColumn("Cargo",        disabled=True),
+            "company":         st.column_config.TextColumn("Empresa",      disabled=True),
+            "location":        st.column_config.TextColumn("Localização",  disabled=True),
+            "email":           st.column_config.TextColumn("Email",        disabled=True),
+            "score_reason":    st.column_config.TextColumn("🧠 Critério IA", disabled=True,
+                               help="Critérios usados pelo Score via IA"),
+            "source":          st.column_config.TextColumn("Fonte",        disabled=True),
             "status": st.column_config.SelectboxColumn(
                 "Status",
                 options=["pending", "approved", "skipped", "sent", "failed"],
                 required=True,
             ),
-            "linkedin_url": st.column_config.LinkColumn("LinkedIn"),
+            "response_status": st.column_config.SelectboxColumn(
+                "Resposta DM",
+                options=["", "no_reply", "positive", "negative", "scheduled"],
+                help="Status da resposta à DM enviada",
+            ),
+            "notes":           st.column_config.TextColumn("📝 Notas",
+                               help="Anotações livres: 'já é cliente', 'follow-up em 3 dias'..."),
+            "linkedin_url":    st.column_config.LinkColumn("LinkedIn"),
         },
     )
 
-    # Auto-salvar mudanças de status
-    if "status" in edited_df.columns and "status" in df_edit.columns:
-        changed_mask = edited_df["status"] != df_edit["status"]
-        if changed_mask.any():
-            for pos in changed_mask[changed_mask].index:
-                url        = df_edit.iloc[pos]["linkedin_url"]
-                new_status = edited_df.iloc[pos]["status"]
-                mask = st.session_state.session_df["linkedin_url"] == url
-                st.session_state.session_df.loc[mask, "status"] = new_status
-            # Persistir no CSV
-            try:
-                from leads_manager import load_leads, _csv_save_leads
-                existing = load_leads()
-                for pos in changed_mask[changed_mask].index:
-                    url = df_edit.iloc[pos]["linkedin_url"]
-                    new_status = edited_df.iloc[pos]["status"]
-                    from models import _normalize_url
-                    key = _normalize_url(url)
-                    if key in existing:
-                        existing[key].status = new_status
-                _csv_save_leads(existing)
-                add_log(f"Status salvo: {changed_mask.sum()} leads atualizados")
-            except Exception as _e:
-                add_log(f"Status atualizado na sessão (CSV: {_e})")
-            st.rerun()
+    # Auto-salvar mudanças de status / response_status / notes
+    _editable_cols = ["status", "response_status", "notes"]
+    _editable_cols = [c for c in _editable_cols if c in edited_df.columns and c in df_edit.columns]
+    _any_change = any((edited_df[c] != df_edit[c]).any() for c in _editable_cols)
+    if _any_change:
+        from models import _normalize_url
+        for pos in range(len(df_edit)):
+            url = df_edit.iloc[pos]["linkedin_url"]
+            for col in _editable_cols:
+                new_val = edited_df.iloc[pos][col]
+                old_val = df_edit.iloc[pos][col]
+                if new_val != old_val:
+                    mask = st.session_state.session_df["linkedin_url"] == url
+                    st.session_state.session_df.loc[mask, col] = new_val
+        # Persistir no CSV
+        try:
+            from leads_manager import load_leads, _csv_save_leads
+            existing = load_leads()
+            for pos in range(len(df_edit)):
+                url = df_edit.iloc[pos]["linkedin_url"]
+                key = _normalize_url(url)
+                if key in existing:
+                    for col in _editable_cols:
+                        new_val = edited_df.iloc[pos][col]
+                        old_val = df_edit.iloc[pos][col]
+                        if new_val != old_val:
+                            setattr(existing[key], col, str(new_val) if new_val else "")
+            _csv_save_leads(existing)
+            add_log(f"Alterações salvas no CSV")
+        except Exception as _e:
+            add_log(f"Sessão atualizada (CSV: {_e})")
+        st.rerun()
 
     # Linha inferior: contagem + exportar
     col_count, col_dl = st.columns([3, 1])
